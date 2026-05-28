@@ -260,7 +260,7 @@
     border:1px solid var(--border);
     border-radius:var(--radius-sm);
     padding:0 14px;
-    height:40px;
+    height:44px;
     color:var(--text);
     font-family:var(--font-body);
     font-size:14px;
@@ -449,7 +449,7 @@
     font-size:16px; font-weight:800;
     color:var(--green);
     text-align:center;
-    height:40px;
+    height:44px;
     display:flex; align-items:center; justify-content:center;
   }
 
@@ -530,140 +530,193 @@
     z-index:99;
   }
 
-  /* ── RESPONSIVE ── */
+  /* ── DESKTOP: layout classes (sem inline style) ── */
+  .dash-chart-grid {
+    display:grid;
+    grid-template-columns:3fr 2fr 2fr;
+    gap:14px; margin-bottom:20px;
+  }
+  .qfg-registro, .qfg-avulso {
+    grid-template-columns:1fr 1fr 1fr 120px 100px;
+  }
+  .qfg-vales {
+    grid-template-columns:1fr 1fr 120px 100px;
+  }
+  .modal-btns {
+    display:flex; gap:10px; justify-content:flex-end; margin-top:8px; flex-wrap:wrap;
+  }
+  .tbl-actions { display:flex; gap:6px; flex-wrap:wrap; }
+  .week-header-right { display:flex; align-items:center; gap:16px; flex-shrink:0; }
+  .week-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
 
-  /* Tablet largo */
+  /* ── TABLET LARGO ── */
   @media(max-width:1100px){
     .stat-grid { grid-template-columns:repeat(2,1fr); }
-    .dash-chart-grid { grid-template-columns:1fr 1fr !important; }
+    .dash-chart-grid { grid-template-columns:1fr 1fr; }
     .dash-chart-grid > :first-child { grid-column:span 2; }
   }
 
-  /* Tablet / mobile landscape */
+  /* ── TABLET / LANDSCAPE ── */
   @media(max-width:768px){
-    /* Sidebar: gaveta lateral */
+    /* Sidebar gaveta */
     .sidebar { transform:translateX(-100%); }
     .sidebar.open { transform:translateX(0); }
     .sidebar-overlay.open { display:block; }
     .main-content { margin-left:0; }
     .hamburger { display:flex; }
-    .page-content { padding:14px; }
-    .topbar { padding:0 14px; }
+    .page-content { padding:16px; }
+    .topbar { padding:0 16px; }
 
     /* Stats */
     .stat-grid { grid-template-columns:repeat(2,1fr); gap:10px; }
-    .dash-chart-grid { grid-template-columns:1fr !important; }
-    .dash-chart-grid > :first-child { grid-column:span 1; }
 
-    /* Forms: 2 colunas no tablet */
+    /* Charts: 1 coluna */
+    .dash-chart-grid { grid-template-columns:1fr; }
+    .dash-chart-grid > :first-child { grid-column:span 1; }
+    .chart-container { height:200px; }
+
+    /* Forms: 2 colunas */
     .quick-form { padding:16px; }
     .quick-form-grid,
-    .quick-form-grid[style] { grid-template-columns:1fr 1fr !important; gap:10px !important; }
+    .qfg-registro, .qfg-avulso { grid-template-columns:1fr 1fr !important; }
+    .qfg-vales { grid-template-columns:1fr 1fr !important; }
 
     /* Backup */
     .backup-grid { grid-template-columns:1fr !important; }
 
-    /* Graficos menores */
-    .chart-container { height:180px; }
-
-    /* Modal: bottom sheet em mobile */
+    /* Modal: bottom-sheet */
     .modal-overlay { align-items:flex-end; padding:0; }
     .modal {
-      max-width:100%;
-      border-radius:var(--radius) var(--radius) 0 0;
-      max-height:90vh;
-      overflow-y:auto;
+      max-width:100%; border-radius:var(--radius) var(--radius) 0 0;
+      max-height:92vh; overflow-y:auto;
     }
     @keyframes modalIn {
       from { transform:translateY(100%); opacity:0; }
       to   { transform:translateY(0);    opacity:1; }
     }
 
-    /* Topbar: esconde data em telas medias */
+    /* Topbar */
     #current-date-badge { display:none; }
 
-    /* Tabelas mais compactas */
-    td, th { padding:9px 10px; font-size:13px; }
+    /* Tabelas */
+    td, th { padding:10px 10px; font-size:13px; }
 
     /* Login */
     .login-card { padding:32px 24px; }
+
+    /* Inputs touch-friendly */
+    .form-control { height:44px; }
+    .btn { min-height:40px; }
   }
 
-  /* Mobile portrait */
+  /* ── MOBILE PORTRAIT ── */
   @media(max-width:480px){
-    /* Layout geral */
-    .page-content { padding:10px; }
-    .topbar { padding:0 12px; }
+    /* Layout base */
+    .page-content { padding:12px; }
+    .topbar { padding:0 12px; height:54px; }
 
-    /* Stats: 2 col sempre */
+    /* Login: card ocupa tela toda embaixo */
+    #login-screen { align-items:flex-end; padding:0; }
+    .login-card {
+      max-width:100%; border-radius:20px 20px 0 0;
+      padding:28px 20px 36px; border-bottom:none;
+    }
+
+    /* Stats */
     .stat-grid { grid-template-columns:1fr 1fr; gap:8px; }
-    .stat-card { padding:14px; }
-    .stat-value { font-size:clamp(14px,4vw,22px); }
-    .stat-icon { font-size:16px; margin-bottom:6px; }
+    .stat-card { padding:12px 14px; }
+    .stat-value { font-size:clamp(13px,3.5vw,20px); }
+    .stat-icon { font-size:16px; margin-bottom:4px; }
+    .stat-label { font-size:11px; }
 
-    /* Formularios: 1 coluna em mobile */
-    .quick-form-grid,
-    .quick-form-grid[style] { grid-template-columns:1fr !important; }
-    .quick-form { padding:14px; }
-
-    /* Page header */
-    .page-header { flex-direction:column; align-items:flex-start; }
-    .page-header-right { width:100%; flex-wrap:wrap; }
-    .page-header-title { font-size:20px; }
-    .search-bar { max-width:100%; flex:1; min-width:0; }
-
-    /* Graficos */
-    .chart-container { height:150px; }
+    /* Charts */
+    .chart-container { height:160px; }
     .chart-card { padding:14px; }
+    .chart-title { font-size:11px; }
 
-    /* Ranking: esconde barra de progresso */
+    /* Ranking */
     .rank-bar-wrap { display:none; }
     .ranking-item { gap:8px; padding:8px 10px; }
     .rank-value { font-size:12px; }
+    .rank-name { font-size:12px; }
+    .rank-services { font-size:10px; }
 
-    /* Tabelas */
-    td, th { padding:8px 8px; font-size:12px; }
-    .badge { font-size:10px; padding:2px 7px; }
+    /* Formularios: 1 coluna */
+    .quick-form { padding:12px; }
+    .quick-form-grid,
+    .qfg-registro, .qfg-avulso, .qfg-vales {
+      grid-template-columns:1fr !important;
+    }
 
-    /* Login */
-    .login-card { padding:28px 18px; border-radius:16px; }
-    .login-card h2 { font-size:20px; }
+    /* Page header */
+    .page-header { flex-direction:column; align-items:flex-start; gap:10px; }
+    .page-header-right { width:100%; flex-wrap:wrap; gap:8px; }
+    .page-header-title { font-size:19px; }
+    .page-header-sub { font-size:12px; }
+    .search-bar { max-width:100%; flex:1; }
 
-    /* Semanas */
-    .week-header { padding:12px 14px; }
-    .week-title { font-size:13px; }
-    .week-body { padding:12px 14px; }
-    .week-total { font-size:14px; }
-
-    /* Sync status compacto */
+    /* Topbar */
+    .topbar-title { font-size:15px; }
     #sync-status .sync-text { display:none; }
 
-    /* Botoes menores */
-    .btn { padding:8px 14px; font-size:12px; }
-    .btn-sm { padding:5px 10px; font-size:11px; }
+    /* Tabelas */
+    .table-wrap { -webkit-overflow-scrolling:touch; }
+    td, th { padding:9px 8px; font-size:12px; }
+    .badge { font-size:10px; padding:2px 6px; }
 
-    /* Modal */
-    .modal { padding:20px 16px; }
-    .modal-title { font-size:16px; }
+    /* Botoes de acao na tabela: icone apenas */
+    .tbl-actions .btn-ghost .btn-txt { display:none; }
 
-    /* Topbar titulo menor */
-    .topbar-title { font-size:15px; }
-  }
+    /* Week cards */
+    .week-header { padding:12px 14px; flex-wrap:wrap; gap:6px; }
+    .week-title { font-size:13px; }
+    .week-header-right { gap:10px; }
+    .week-total { font-size:14px; }
+    .week-body { padding:10px 14px; }
+    .week-actions { gap:6px; }
+    .week-actions .btn { font-size:11px; padding:6px 10px; }
 
-  /* Fechamento filtros em coluna no mobile */
-  @media(max-width:480px){
-    .fechamento-filter { flex-direction:column !important; align-items:stretch !important; }
+    /* Fechamento filtro em coluna */
+    .fechamento-filter {
+      flex-direction:column !important;
+      align-items:stretch !important;
+    }
     .fechamento-filter .form-group { width:100%; }
     .fechamento-filter .btn { width:100%; justify-content:center; }
+
+    /* Fechamento header: stack na vertical */
+    .fech-header { flex-direction:column; align-items:flex-start !important; }
+
+    /* Modal */
+    .modal { padding:20px 16px 28px; }
+    .modal-title { font-size:16px; }
+    .modal-close { width:36px; height:36px; display:flex; align-items:center; justify-content:center; }
+    .modal-btns { justify-content:stretch; }
+    .modal-btns .btn { flex:1; justify-content:center; }
+
+    /* Botoes gerais */
+    .btn { padding:9px 14px; font-size:12px; }
+    .btn-sm { padding:6px 10px; font-size:11px; }
+
+    /* Toast: barra inferior */
+    .toast-container {
+      bottom:0; right:0; left:0;
+      padding:0 12px 12px;
+    }
+    .toast { max-width:100%; }
   }
 
-  /* Mobile muito pequeno */
+  /* ── MOBILE MUITO PEQUENO ── */
   @media(max-width:360px){
-    .stat-grid { grid-template-columns:1fr 1fr; gap:6px; }
-    .stat-card { padding:10px 12px; }
-    .stat-value { font-size:13px; }
     .page-content { padding:8px; }
-    td, th { padding:6px 6px; font-size:11px; }
+    .topbar { padding:0 10px; }
+    .stat-grid { gap:6px; }
+    .stat-card { padding:10px; }
+    .stat-value { font-size:12px; }
+    td, th { padding:7px 6px; font-size:11px; }
+    .week-header { padding:10px 12px; }
+    .week-body { padding:8px 12px; }
+    .quick-form { padding:10px; }
   }
 </style>
 </head>
@@ -1213,7 +1266,7 @@ function renderDashboard(){
       </div>
     </div>
 
-    <div style="display:grid;grid-template-columns:3fr 2fr 2fr;gap:14px;margin-bottom:20px;" class="dash-chart-grid">
+    <div class="dash-chart-grid">
       <div class="chart-card">
         <div class="chart-title">📈 Produção semanal (últimas 6 semanas)</div>
         <div class="chart-container"><canvas id="chart-weekly"></canvas></div>
@@ -1326,7 +1379,7 @@ function renderRegistro(){
 
       <!-- MODO: DA LISTA -->
       <div id="form-lista" style="display:${!modoAvulso?'block':'none'}">
-        <div class="quick-form-grid" style="grid-template-columns:1fr 1fr 1fr 120px 100px;">
+        <div class="quick-form-grid qfg-registro">
           <div class="form-group" style="margin:0">
             <label>Mecânico</label>
             <select class="form-control" id="reg-mec">
@@ -1355,14 +1408,14 @@ function renderRegistro(){
           </div>
           <div class="form-group" style="margin:0">
             <label>Ação</label>
-            <button class="btn btn-primary" style="width:100%;justify-content:center;height:40px;" onclick="salvarRegistro()">✓ OK</button>
+            <button class="btn btn-primary" style="width:100%;justify-content:center;height:44px;" onclick="salvarRegistro()">✓ OK</button>
           </div>
         </div>
       </div>
 
       <!-- MODO: AVULSO -->
       <div id="form-avulso" style="display:${modoAvulso?'block':'none'}">
-        <div class="quick-form-grid" style="grid-template-columns:1fr 1fr 1fr 120px 100px;">
+        <div class="quick-form-grid qfg-avulso">
           <div class="form-group" style="margin:0">
             <label>Mecânico</label>
             <select class="form-control" id="av-mec">
@@ -1388,7 +1441,7 @@ function renderRegistro(){
           </div>
           <div class="form-group" style="margin:0">
             <label>Ação</label>
-            <button class="btn btn-primary" style="width:100%;justify-content:center;height:40px;" onclick="salvarAvulso()">✓ OK</button>
+            <button class="btn btn-primary" style="width:100%;justify-content:center;height:44px;" onclick="salvarAvulso()">✓ OK</button>
           </div>
         </div>
       </div>
@@ -1506,8 +1559,8 @@ function renderMecanicos(){
                 <td><span class="badge badge-orange">${m.code}</span></td>
                 <td><strong>${m.name}</strong></td>
                 <td>
-                  <div style="display:flex;gap:6px;">
-                    <button class="btn btn-ghost btn-sm" onclick="openMecanicoModal(${m.id})">✏️ Editar</button>
+                  <div class="tbl-actions">
+                    <button class="btn btn-ghost btn-sm" onclick="openMecanicoModal(${m.id})">✏️<span class="btn-txt"> Editar</span></button>
                     <button class="btn btn-danger btn-sm" onclick="deleteMecanico(${m.id})">🗑</button>
                   </div>
                 </td>
@@ -1539,7 +1592,7 @@ function openMecanicoModal(id){
       <label>Nome</label>
       <input class="form-control" id="mec-name" type="text" placeholder="Nome completo" value="${m?.name||''}">
     </div>
-    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;">
+    <div class="modal-btns">
       <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
       <button class="btn btn-primary" onclick="saveMecanico(${id||0})">${m?'Salvar':'Cadastrar'}</button>
     </div>
@@ -1602,8 +1655,8 @@ function renderServicos(){
                 <td><strong>${s.name}</strong></td>
                 <td><strong style="color:var(--green)">${fmtMoney(s.value)}</strong></td>
                 <td>
-                  <div style="display:flex;gap:6px;">
-                    <button class="btn btn-ghost btn-sm" onclick="openServicoModal(${s.id})">✏️ Editar</button>
+                  <div class="tbl-actions">
+                    <button class="btn btn-ghost btn-sm" onclick="openServicoModal(${s.id})">✏️<span class="btn-txt"> Editar</span></button>
                     <button class="btn btn-danger btn-sm" onclick="deleteServico(${s.id})">🗑</button>
                   </div>
                 </td>
@@ -1636,7 +1689,7 @@ function openServicoModal(id){
       <label>Valor padrão (R$)</label>
       <input class="form-control" id="srv-value" type="number" placeholder="0,00" step="0.01" min="0" value="${s?.value||''}">
     </div>
-    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;">
+    <div class="modal-btns">
       <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
       <button class="btn btn-primary" onclick="saveServico(${id||0})">${s?'Salvar':'Cadastrar'}</button>
     </div>
@@ -1694,7 +1747,7 @@ function renderVeiculos(){
                 <td><strong>${v.marca} ${v.modelo}</strong></td>
                 <td>${v.cor}</td>
                 <td>
-                  <button class="btn btn-ghost btn-sm" onclick="openVeiculoModal(${v.id})">✏️</button>
+                  <button class="btn btn-ghost btn-sm" onclick="openVeiculoModal(${v.id})">✏️<span class="btn-txt"> Editar</span></button>
                   <button class="btn btn-danger btn-sm" onclick="deleteVeiculo(${v.id})">🗑</button>
                 </td>
               </tr>`).join('')
@@ -1754,11 +1807,11 @@ function renderVales(){
   document.getElementById('page-content').innerHTML = `
     <div class="quick-form">
       <div class="page-header-title" style="margin-bottom:16px;">💸 Lançar Vale (Adiantamento)</div>
-      <div class="quick-form-grid" style="grid-template-columns:1fr 1fr 120px 100px;">
+      <div class="quick-form-grid qfg-vales">
         <div class="form-group" style="margin:0"><label>Mecânico</label><select class="form-control" id="vale-mec"><option value="">Selecione...</option>${mecOptions}</select></div>
         <div class="form-group" style="margin:0"><label>Motivo/Descrição</label><input type="text" class="form-control" id="vale-desc" placeholder="Ex: Adiantamento semana"></div>
         <div class="form-group" style="margin:0"><label>Valor</label><input type="number" class="form-control" id="vale-val" min="0" step="0.01" style="color:var(--red);font-weight:700;"></div>
-        <div class="form-group" style="margin:0"><label>Ação</label><button class="btn btn-danger" style="width:100%;height:40px;" onclick="salvarVale()">Lançar</button></div>
+        <div class="form-group" style="margin:0"><label>Ação</label><button class="btn btn-danger" style="width:100%;height:44px;" onclick="salvarVale()">Lançar</button></div>
       </div>
     </div>
     <div class="card">
@@ -1850,7 +1903,7 @@ function renderFechamentoFor(start, end){
     </div>
 
     <div class="card" id="fechamento-print">
-      <div style="display:flex;justify-content:space-between;margin-bottom:20px;">
+      <div class="fech-header" style="display:flex;justify-content:space-between;margin-bottom:20px;gap:12px;flex-wrap:wrap;">
         <div style="font-family:var(--font-head);font-size:20px;font-weight:800;">Resumo Financeiro</div>
         <div style="text-align:right;">
           <div style="color:var(--text2);font-size:12px;">Saldo Líquido Geral</div>
@@ -1932,7 +1985,7 @@ function renderHistorico(){
             <div class="week-title">${isCurrent?'🟢 Semana Atual — ':''}${fmtDate(w.start)} a ${fmtDate(w.end)}</div>
             <div style="font-size:12px;color:var(--text2);margin-top:2px;">${w.count} serviços realizados</div>
           </div>
-          <div style="display:flex;align-items:center;gap:16px;">
+          <div class="week-header-right">
             <div class="week-total">${fmtMoney(w.total)}</div>
             <span style="color:var(--text3)">▼</span>
           </div>
@@ -1942,7 +1995,7 @@ function renderHistorico(){
             <thead><tr><th>Mecânico</th><th>Total</th></tr></thead>
             <tbody>${mecRows}</tbody>
           </table>
-          <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+          <div class="week-actions">
             <button class="btn btn-ghost btn-sm" onclick="exportCSV('${w.start}','${w.end}')">📊 Exportar CSV</button>
             <button class="btn btn-ghost btn-sm" onclick="navigate('fechamento');setTimeout(()=>renderFechamentoFor('${w.start}','${w.end}'),50)">Ver detalhes →</button>
             <button class="btn btn-danger btn-sm" onclick="deleteWeek('${w.start}','${w.end}')">🗑 Apagar semana</button>
@@ -1969,7 +2022,7 @@ function deleteWeek(start, end){
   openModal('⚠️ Apagar Semana', `
     <p style="color:var(--text2);margin-bottom:20px;">Tem certeza que deseja apagar todos os registros da semana <strong style="color:var(--text)">${fmtDate(start)} a ${fmtDate(end)}</strong>?</p>
     <p style="color:var(--red);font-size:13px;margin-bottom:24px;">⚠️ Esta ação não pode ser desfeita.</p>
-    <div style="display:flex;gap:10px;justify-content:flex-end;">
+    <div class="modal-btns">
       <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
       <button class="btn btn-danger" onclick="confirmDeleteWeek('${start}','${end}')">Apagar semana</button>
     </div>
@@ -1994,7 +2047,7 @@ function deleteAllHistory(){
     <p style="color:var(--text2);margin-bottom:20px;">Tem certeza que deseja apagar <strong style="color:var(--red)">TODOS</strong> os registros de serviços?</p>
     <p style="color:var(--red);font-size:13px;margin-bottom:8px;">⚠️ Esta ação é irreversível. Todos os registros serão perdidos permanentemente.</p>
     <p style="font-size:13px;color:var(--text2);margin-bottom:24px;">💡 Sugestão: faça um backup antes de apagar.</p>
-    <div style="display:flex;gap:10px;justify-content:flex-end;">
+    <div class="modal-btns">
       <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
       <button class="btn btn-ghost" onclick="closeModal();navigate('backup')">💾 Fazer backup primeiro</button>
       <button class="btn btn-danger" onclick="confirmDeleteAll()">Apagar tudo</button>
@@ -2076,7 +2129,7 @@ function importBackup(input){
           </div>
         </div>
         <p style="color:var(--red);font-size:13px;margin-bottom:20px;">⚠️ Os dados atuais serão substituídos pelos dados do backup.</p>
-        <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <div class="modal-btns">
           <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
           <button class="btn btn-primary" onclick="confirmImport(${JSON.stringify(JSON.stringify(data)).slice(1,-1)})">Restaurar agora</button>
         </div>
