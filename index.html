@@ -530,13 +530,18 @@
     z-index:99;
   }
 
-  /* ── MOBILE ── */
+  /* ── RESPONSIVE ── */
+
+  /* Tablet largo */
   @media(max-width:1100px){
     .stat-grid { grid-template-columns:repeat(2,1fr); }
     .dash-chart-grid { grid-template-columns:1fr 1fr !important; }
     .dash-chart-grid > :first-child { grid-column:span 2; }
   }
+
+  /* Tablet / mobile landscape */
   @media(max-width:768px){
+    /* Sidebar: gaveta lateral */
     .sidebar { transform:translateX(-100%); }
     .sidebar.open { transform:translateX(0); }
     .sidebar-overlay.open { display:block; }
@@ -544,21 +549,121 @@
     .hamburger { display:flex; }
     .page-content { padding:14px; }
     .topbar { padding:0 14px; }
+
+    /* Stats */
     .stat-grid { grid-template-columns:repeat(2,1fr); gap:10px; }
     .dash-chart-grid { grid-template-columns:1fr !important; }
     .dash-chart-grid > :first-child { grid-column:span 1; }
-    .quick-form-grid { grid-template-columns:1fr 1fr; gap:10px; }
-    .quick-form-grid > :nth-child(3),
-    .quick-form-grid > :nth-child(4) { grid-column:span 1; }
+
+    /* Forms: 2 colunas no tablet */
+    .quick-form { padding:16px; }
+    .quick-form-grid,
+    .quick-form-grid[style] { grid-template-columns:1fr 1fr !important; gap:10px !important; }
+
+    /* Backup */
     .backup-grid { grid-template-columns:1fr !important; }
+
+    /* Graficos menores */
+    .chart-container { height:180px; }
+
+    /* Modal: bottom sheet em mobile */
+    .modal-overlay { align-items:flex-end; padding:0; }
+    .modal {
+      max-width:100%;
+      border-radius:var(--radius) var(--radius) 0 0;
+      max-height:90vh;
+      overflow-y:auto;
+    }
+    @keyframes modalIn {
+      from { transform:translateY(100%); opacity:0; }
+      to   { transform:translateY(0);    opacity:1; }
+    }
+
+    /* Topbar: esconde data em telas medias */
+    #current-date-badge { display:none; }
+
+    /* Tabelas mais compactas */
+    td, th { padding:9px 10px; font-size:13px; }
+
+    /* Login */
+    .login-card { padding:32px 24px; }
   }
+
+  /* Mobile portrait */
   @media(max-width:480px){
+    /* Layout geral */
+    .page-content { padding:10px; }
+    .topbar { padding:0 12px; }
+
+    /* Stats: 2 col sempre */
     .stat-grid { grid-template-columns:1fr 1fr; gap:8px; }
-    .stat-value { font-size:16px; }
-    .quick-form-grid { grid-template-columns:1fr; }
+    .stat-card { padding:14px; }
+    .stat-value { font-size:clamp(14px,4vw,22px); }
+    .stat-icon { font-size:16px; margin-bottom:6px; }
+
+    /* Formularios: 1 coluna em mobile */
+    .quick-form-grid,
+    .quick-form-grid[style] { grid-template-columns:1fr !important; }
+    .quick-form { padding:14px; }
+
+    /* Page header */
     .page-header { flex-direction:column; align-items:flex-start; }
-    .page-header-right { width:100%; }
-    .search-bar { max-width:100%; }
+    .page-header-right { width:100%; flex-wrap:wrap; }
+    .page-header-title { font-size:20px; }
+    .search-bar { max-width:100%; flex:1; min-width:0; }
+
+    /* Graficos */
+    .chart-container { height:150px; }
+    .chart-card { padding:14px; }
+
+    /* Ranking: esconde barra de progresso */
+    .rank-bar-wrap { display:none; }
+    .ranking-item { gap:8px; padding:8px 10px; }
+    .rank-value { font-size:12px; }
+
+    /* Tabelas */
+    td, th { padding:8px 8px; font-size:12px; }
+    .badge { font-size:10px; padding:2px 7px; }
+
+    /* Login */
+    .login-card { padding:28px 18px; border-radius:16px; }
+    .login-card h2 { font-size:20px; }
+
+    /* Semanas */
+    .week-header { padding:12px 14px; }
+    .week-title { font-size:13px; }
+    .week-body { padding:12px 14px; }
+    .week-total { font-size:14px; }
+
+    /* Sync status compacto */
+    #sync-status .sync-text { display:none; }
+
+    /* Botoes menores */
+    .btn { padding:8px 14px; font-size:12px; }
+    .btn-sm { padding:5px 10px; font-size:11px; }
+
+    /* Modal */
+    .modal { padding:20px 16px; }
+    .modal-title { font-size:16px; }
+
+    /* Topbar titulo menor */
+    .topbar-title { font-size:15px; }
+  }
+
+  /* Fechamento filtros em coluna no mobile */
+  @media(max-width:480px){
+    .fechamento-filter { flex-direction:column !important; align-items:stretch !important; }
+    .fechamento-filter .form-group { width:100%; }
+    .fechamento-filter .btn { width:100%; justify-content:center; }
+  }
+
+  /* Mobile muito pequeno */
+  @media(max-width:360px){
+    .stat-grid { grid-template-columns:1fr 1fr; gap:6px; }
+    .stat-card { padding:10px 12px; }
+    .stat-value { font-size:13px; }
+    .page-content { padding:8px; }
+    td, th { padding:6px 6px; font-size:11px; }
   }
 </style>
 </head>
@@ -832,7 +937,7 @@ function setSyncStatus(status){
     off:     { icon:'⚪', text:'Local', color:'var(--text3)' }
   };
   const s = map[status]||map.off;
-  el.innerHTML = `<span style="color:${s.color};font-size:11px;font-weight:600;display:flex;align-items:center;gap:4px;">${s.icon} ${s.text}</span>`;
+  el.innerHTML = `<span style="color:${s.color};font-size:11px;font-weight:600;display:flex;align-items:center;gap:4px;">${s.icon}<span class="sync-text"> ${s.text}</span></span>`;
 }
 
 // ══════════════════════════════════
@@ -1738,7 +1843,7 @@ function renderFechamentoFor(start, end){
       </div>
     </div>
 
-    <div style="display:flex;gap:12px;align-items:flex-end;margin-bottom:20px;">
+    <div class="fechamento-filter" style="display:flex;gap:12px;align-items:flex-end;margin-bottom:20px;">
       <div class="form-group" style="margin:0"><label>De</label><input class="form-control" type="date" id="filter-start" value="${start}"></div>
       <div class="form-group" style="margin:0"><label>Até</label><input class="form-control" type="date" id="filter-end" value="${end}"></div>
       <button class="btn btn-ghost" onclick="renderFechamentoFor(document.getElementById('filter-start').value,document.getElementById('filter-end').value)">Filtrar</button>
@@ -1833,7 +1938,7 @@ function renderHistorico(){
           </div>
         </div>
         <div class="week-body ${i===0?'open':''}">
-          <table style="max-width:400px;">
+          <table style="max-width:100%;width:100%;">
             <thead><tr><th>Mecânico</th><th>Total</th></tr></thead>
             <tbody>${mecRows}</tbody>
           </table>
