@@ -659,6 +659,11 @@
     .topbar-title { font-size:15px; }
     #sync-status .sync-text { display:none; }
 
+    /* Color picker: 4 colunas em mobile */
+    #vei-cor-grid { grid-template-columns:repeat(4,1fr) !important; }
+    .cor-opt span:first-child { width:24px !important; height:24px !important; }
+    .cor-opt span:last-child { font-size:8px !important; }
+
     /* Tabelas */
     .table-wrap { -webkit-overflow-scrolling:touch; }
     td, th { padding:9px 8px; font-size:12px; }
@@ -1016,8 +1021,8 @@ const DB = {
       {id:8, code:'008', name:'Filtro de ar', value:50}
     ]);
     if(!this.get('veiculos')) this.set('veiculos',[
-      {id:1, code:'001', placa:'ABC-1234', marca:'Toyota', modelo:'Corolla', cor:'Preto'},
-      {id:2, code:'002', placa:'XYZ-5678', marca:'Honda', modelo:'Civic', cor:'Prata'}
+      {id:1, code:'001', marca:'Toyota', modelo:'Corolla', cor:'Preto'},
+      {id:2, code:'002', marca:'Honda', modelo:'Civic', cor:'Prata'}
     ]);
     if(!this.get('registros')) this.set('registros', generateSampleData());
     if(!this.get('vales')) this.set('vales', []);
@@ -1355,7 +1360,7 @@ function renderRegistro(){
 
   const mecOptions = mecanicos.map(m=>`<option value="${m.id}">${m.code} — ${m.name}</option>`).join('');
   const srvOptions = servicos.map(s=>`<option value="${s.id}" data-value="${s.value}">${s.code} — ${s.name} (${fmtMoney(s.value)})</option>`).join('');
-  const veiOptions = veiculos.map(v=>`<option value="${v.id}">${v.placa || v.modelo} — ${v.marca} ${v.cor}</option>`).join('');
+  const veiOptions = veiculos.map(v=>`<option value="${v.id}">${v.marca} ${v.modelo}${v.cor?' — '+v.cor:''}</option>`).join('');
 
   const todayRegs = registros.filter(r=>r.date===today).reverse();
 
@@ -1477,7 +1482,7 @@ function renderRegistro(){
                   return `<tr>
                     <td><span class="badge badge-blue">${fmtDate(r.date)}</span></td>
                     <td><strong>${mec?.name||'?'}</strong></td>
-                    <td><span class="badge badge-orange">${vei?.placa||'N/A'}</span></td>
+                    <td><span class="badge badge-orange">${vei?vei.marca+' '+vei.modelo:'N/A'}</span></td>
                     <td>${srvNome}${r.nomeAvulso?' <span class="badge badge-orange" style="font-size:9px;">avulso</span>':''}</td>
                     <td><strong style="color:var(--green)">${fmtMoney(r.value)}</strong></td>
                     <td><button class="btn btn-danger btn-sm btn-icon" onclick="deleteRegistro(${r.id})" aria-label="Excluir Registro">🗑</button></td>
@@ -1724,6 +1729,22 @@ function deleteServico(id){
 // ══════════════════════════════════
 //  VEÍCULOS
 // ══════════════════════════════════
+const COR_HEX = {
+  'Branco':'#FFFFFF','Prata':'#C0C0C0','Cinza':'#808080','Preto':'#1a1a1a',
+  'Vermelho':'#DC2626','Azul':'#2563EB','Azul Marinho':'#1E3A8A','Verde':'#16A34A',
+  'Amarelo':'#EAB308','Laranja':'#F97316','Roxo':'#7C3AED','Rosa':'#EC4899',
+  'Marrom':'#92400E','Bege':'#D4B896','Dourado':'#B45309','Outra':'#6B7280'
+};
+
+function corDot(cor){
+  const hex = COR_HEX[cor]||'#6B7280';
+  const border = cor==='Branco'?'border:1px solid #555;':'';
+  return `<span style="display:inline-flex;align-items:center;gap:6px;">
+    <span style="width:12px;height:12px;border-radius:50%;background:${hex};flex-shrink:0;${border}"></span>
+    ${cor||'—'}
+  </span>`;
+}
+
 function renderVeiculos(){
   const veiculos = DB.get('veiculos')||[];
   document.getElementById('page-content').innerHTML = `
@@ -1733,20 +1754,24 @@ function renderVeiculos(){
         <div class="page-header-sub">${veiculos.length} cadastrado(s)</div>
       </div>
       <div class="page-header-right">
+        <div class="search-bar">
+          <span>🔍</span>
+          <input type="text" placeholder="Pesquisar..." oninput="filterTable(this,'vei-table')" />
+        </div>
         <button class="btn btn-primary" onclick="openVeiculoModal()">+ Novo Veículo</button>
       </div>
     </div>
     <div class="card">
       <div class="table-wrap">
         <table id="vei-table">
-          <thead><tr><th>Placa</th><th>Marca/Modelo</th><th>Cor</th><th>Ações</th></tr></thead>
+          <thead><tr><th>Código</th><th>Marca / Modelo</th><th>Cor</th><th>Ações</th></tr></thead>
           <tbody>
-            ${veiculos.length===0?`<tr><td colspan="4"><div class="empty-state">Nenhum veículo</div></td></tr>`:
+            ${veiculos.length===0?`<tr><td colspan="4"><div class="empty-state"><div class="empty-icon">🚗</div><p>Nenhum veículo cadastrado</p></div></td></tr>`:
               veiculos.map(v=>`<tr>
-                <td><span class="badge badge-orange">${v.placa}</span></td>
+                <td><span class="badge badge-orange">${v.code||'—'}</span></td>
                 <td><strong>${v.marca} ${v.modelo}</strong></td>
-                <td>${v.cor}</td>
-                <td>
+                <td>${corDot(v.cor)}</td>
+                <td class="tbl-actions">
                   <button class="btn btn-ghost btn-sm" onclick="openVeiculoModal(${v.id})">✏️<span class="btn-txt"> Editar</span></button>
                   <button class="btn btn-danger btn-sm" onclick="deleteVeiculo(${v.id})">🗑</button>
                 </td>
@@ -1761,27 +1786,89 @@ function renderVeiculos(){
 function openVeiculoModal(id){
   const veiculos = DB.get('veiculos')||[];
   const v = id ? veiculos.find(x=>x.id===id) : null;
+  const nextCode = v ? v.code : (() => {
+    const max = veiculos.reduce((m,x)=>{ const n=parseInt(x.code)||0; return n>m?n:m; },0);
+    return String(max+1).padStart(3,'0');
+  })();
+  const corAtual = v?.cor||'';
+  const cores = [
+    {nome:'Branco',hex:'#FFFFFF'},{nome:'Prata',hex:'#C0C0C0'},{nome:'Cinza',hex:'#808080'},
+    {nome:'Preto',hex:'#1a1a1a'},{nome:'Vermelho',hex:'#DC2626'},{nome:'Azul',hex:'#2563EB'},
+    {nome:'Azul Marinho',hex:'#1E3A8A'},{nome:'Verde',hex:'#16A34A'},{nome:'Amarelo',hex:'#EAB308'},
+    {nome:'Laranja',hex:'#F97316'},{nome:'Roxo',hex:'#7C3AED'},{nome:'Rosa',hex:'#EC4899'},
+    {nome:'Marrom',hex:'#92400E'},{nome:'Bege',hex:'#D4B896'},{nome:'Dourado',hex:'#B45309'},
+    {nome:'Outra',hex:'#6B7280'}
+  ];
+  const colorPicker = cores.map(c=>{
+    const sel = corAtual===c.nome;
+    const borda = c.nome==='Branco'?'border:1.5px solid #555;':'';
+    return `<div class="cor-opt${sel?' cor-sel':''}" onclick="selecionarCor(this,'${c.nome}')" title="${c.nome}"
+      style="display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;padding:6px 4px;border-radius:8px;transition:background 0.15s;${sel?'background:var(--accent-dim);':''}"
+      data-cor="${c.nome}">
+      <span style="width:28px;height:28px;border-radius:50%;background:${c.hex};display:block;${borda}
+        box-shadow:${sel?'0 0 0 2.5px var(--accent)':'0 1px 3px rgba(0,0,0,0.4)'};transition:box-shadow 0.15s;"></span>
+      <span style="font-size:9px;color:var(--text2);text-align:center;line-height:1.2;max-width:44px;">${c.nome}</span>
+    </div>`;
+  }).join('');
+
   openModal(v?'Editar Veículo':'Novo Veículo', `
-    <div class="form-group"><label>Placa</label><input class="form-control" id="vei-placa" value="${v?.placa||''}"></div>
-    <div class="form-group"><label>Marca</label><input class="form-control" id="vei-marca" value="${v?.marca||''}"></div>
-    <div class="form-group"><label>Modelo</label><input class="form-control" id="vei-modelo" value="${v?.modelo||''}"></div>
-    <div class="form-group"><label>Cor</label><input class="form-control" id="vei-cor" value="${v?.cor||''}"></div>
-    <button class="btn btn-primary" style="width:100%" onclick="saveVeiculo(${id||0})">Salvar</button>
+    <div class="form-group">
+      <label>Código <span style="color:var(--green);font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;">✓ gerado automaticamente</span></label>
+      <input class="form-control" id="vei-code" value="${nextCode}" maxlength="10">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div class="form-group" style="margin:0">
+        <label>Marca</label>
+        <input class="form-control" id="vei-marca" placeholder="Ex: Toyota" value="${v?.marca||''}">
+      </div>
+      <div class="form-group" style="margin:0">
+        <label>Modelo</label>
+        <input class="form-control" id="vei-modelo" placeholder="Ex: Corolla" value="${v?.modelo||''}">
+      </div>
+    </div>
+    <div class="form-group" style="margin-top:16px;">
+      <label>Cor</label>
+      <input type="hidden" id="vei-cor" value="${corAtual}">
+      <div style="display:grid;grid-template-columns:repeat(8,1fr);gap:4px;padding:12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);">
+        ${colorPicker}
+      </div>
+      <div id="cor-selecionada" style="margin-top:8px;font-size:13px;color:var(--text2);">
+        ${corAtual?`Cor selecionada: <strong style="color:var(--text)">${corAtual}</strong>`:'Nenhuma cor selecionada'}
+      </div>
+    </div>
+    <div class="modal-btns" style="margin-top:8px;">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveVeiculo(${id||0})">${v?'Salvar':'Cadastrar'}</button>
+    </div>
   `);
 }
 
+function selecionarCor(el, nome){
+  document.querySelectorAll('.cor-opt').forEach(o=>{
+    o.classList.remove('cor-sel');
+    o.style.background='';
+    o.querySelector('span').style.boxShadow='0 1px 3px rgba(0,0,0,0.4)';
+  });
+  el.classList.add('cor-sel');
+  el.style.background='var(--accent-dim)';
+  el.querySelector('span').style.boxShadow='0 0 0 2.5px var(--accent)';
+  document.getElementById('vei-cor').value = nome;
+  document.getElementById('cor-selecionada').innerHTML =
+    `Cor selecionada: <strong style="color:var(--text)">${nome}</strong>`;
+}
+
 function saveVeiculo(id){
-  const placa = document.getElementById('vei-placa').value.trim().toUpperCase();
+  const code  = document.getElementById('vei-code').value.trim();
   const marca = document.getElementById('vei-marca').value.trim();
-  const modelo = document.getElementById('vei-modelo').value.trim();
-  const cor = document.getElementById('vei-cor').value.trim();
-  if(!placa||!marca||!modelo){ toast('Preencha os campos','error'); return; }
+  const modelo= document.getElementById('vei-modelo').value.trim();
+  const cor   = document.getElementById('vei-cor').value.trim();
+  if(!code||!marca||!modelo){ toast('Preencha Código, Marca e Modelo','error'); return; }
   let veiculos = DB.get('veiculos')||[];
   if(id){
     const i = veiculos.findIndex(x=>x.id===id);
-    veiculos[i] = {...veiculos[i], placa, marca, modelo, cor};
+    veiculos[i] = {...veiculos[i], code, marca, modelo, cor};
   } else {
-    veiculos.push({id:nextId('vei'), placa, marca, modelo, cor});
+    veiculos.push({id:nextId('vei'), code, marca, modelo, cor});
   }
   DB.set('veiculos', veiculos);
   SYNC.pushCadastros();
