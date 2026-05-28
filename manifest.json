@@ -1,0 +1,27 @@
+{
+  "name": "OficinaControl — Controle de Produção",
+  "short_name": "OficinaControl",
+  "description": "Sistema de controle de produção para oficinas mecânicas",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#0d0f14",
+  "theme_color": "#f97316",
+  "orientation": "any",
+  "lang": "pt-BR",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
