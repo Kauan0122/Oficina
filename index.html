@@ -1852,7 +1852,7 @@ async function openSenhasMecanicos(){
   if(!mecanicos.length){ toast('Nenhum mecânico cadastrado','error'); return; }
 
   // Carrega senhas existentes
-  const snap = await rtdb.ref('config/mec_passwords').once('value');
+  const snap = await rtdb.ref('mec_passwords').once('value');
   const existing = snap.val()||{};
 
   const rows = mecanicos.map(m=>`
@@ -1882,7 +1882,7 @@ async function openSenhasMecanicos(){
 
 async function salvarSenhasMecanicos(){
   const mecanicos = DB.get('mecanicos')||[];
-  const snap = await rtdb.ref('config/mec_passwords').once('value');
+  const snap = await rtdb.ref('mec_passwords').once('value');
   const existing = snap.val()||{};
   let salvos = 0;
   for(const m of mecanicos){
@@ -1893,7 +1893,7 @@ async function salvarSenhasMecanicos(){
       salvos++;
     }
   }
-  await rtdb.ref('config/mec_passwords').set(existing);
+  await rtdb.ref('mec_passwords').set(existing);
   closeModal();
   toast(salvos>0?`${salvos} senha(s) salva(s)! ✅`:'Nenhuma senha alterada','info');
 }
