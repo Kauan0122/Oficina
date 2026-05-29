@@ -993,49 +993,55 @@ const SYNC = {
 
   startListening(){
     setSyncStatus('syncing');
-    // Só liga o listener RTDB quando o Auth confirmar o token
-    fbAuth.onAuthStateChanged(user => {
-      if(!user) return; // ainda sem auth, aguarda
-      rtdb.ref().on('value', snapshot => {
-      const data = snapshot.val();
-      if(data){
-        if(data.registros) DB.set('registros', Object.values(data.registros));
-        else DB.set('registros', []);
 
-        if(data.vales) DB.set('vales', Object.values(data.vales));
-        else DB.set('vales', []);
-
-        if(data.mecanicos) DB.set('mecanicos', data.mecanicos);
-        if(data.servicos)  DB.set('servicos',  data.servicos);
-        if(data.veiculos)  DB.set('veiculos',  data.veiculos);
-
-        // Atualiza nextId para evitar conflito de IDs com dados do Firebase
-        syncNextIds();
-
-        // Nao re-renderiza se o usuario esta digitando num formulario
-        const active = document.activeElement;
-        const pageEl = document.getElementById('page-content');
-        const userIsTyping = active && pageEl && pageEl.contains(active) &&
-          ['INPUT','SELECT','TEXTAREA'].includes(active.tagName);
-
-        if(!userIsTyping){
-          const currentTitle = document.getElementById('topbar-title')?.textContent;
-          // 'Registrar Servico' e 'Vales' excluidos do auto-refresh para nao limpar formularios
-          const pageMap = {
-            'Dashboard':         renderDashboard,
-            'Mecânicos':    renderMecanicos,
-            'Serviços':     renderServicos,
-            'Veículos':     renderVeiculos,
-            'Histórico':    renderHistorico
-          };
-          if(pageMap[currentTitle]) pageMap[currentTitle]();
+    const doListen = () => {
+      rtdb.ref('.info/connected').once('value').then(snap => {
+        // Testa conexão real com o banco antes de ligar o listener principal
+        if(snap.val() !== true){
+          setSyncStatus('error'); return;
         }
-      }
-      setSyncStatus('ok');
-      }, () => {
-        setSyncStatus('error');
-      });
-    }); // onAuthStateChanged
+        rtdb.ref().on('value', snapshot => {
+          const data = snapshot.val();
+          if(data){
+            if(data.registros) DB.set('registros', Object.values(data.registros));
+            else DB.set('registros', []);
+
+            if(data.vales) DB.set('vales', Object.values(data.vales));
+            else DB.set('vales', []);
+
+            if(data.mecanicos) DB.set('mecanicos', data.mecanicos);
+            if(data.servicos)  DB.set('servicos',  data.servicos);
+            if(data.veiculos)  DB.set('veiculos',  data.veiculos);
+
+            syncNextIds();
+
+            const active = document.activeElement;
+            const pageEl = document.getElementById('page-content');
+            const userIsTyping = active && pageEl && pageEl.contains(active) &&
+              ['INPUT','SELECT','TEXTAREA'].includes(active.tagName);
+
+            if(!userIsTyping){
+              const currentTitle = document.getElementById('topbar-title')?.textContent;
+              const pageMap = {
+                'Dashboard':      renderDashboard,
+                'Mecânicos':      renderMecanicos,
+                'Serviços':       renderServicos,
+                'Veículos':       renderVeiculos,
+                'Histórico':      renderHistorico
+              };
+              if(pageMap[currentTitle]) pageMap[currentTitle]();
+            }
+          }
+          setSyncStatus('ok');
+        }, () => setSyncStatus('error'));
+      }).catch(() => setSyncStatus('error'));
+    };
+
+    // Aguarda auth confirmado e adiciona delay para o token propagar ao RTDB
+    fbAuth.onAuthStateChanged(user => {
+      if(!user) return;
+      setTimeout(doListen, 800);
+    });
   }
 };
 
