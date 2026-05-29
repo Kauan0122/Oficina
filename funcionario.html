@@ -432,7 +432,7 @@ async function doFuncLogin(){
   err.style.display = 'none';
   try {
     const hash = await sha256(pwd);
-    const snap = await rtdb.ref('config/mec_passwords/'+selectedMecId).once('value');
+    const snap = await rtdb.ref('mec_passwords/'+selectedMecId).once('value');
     const stored = snap.val();
     if(!stored){
       err.style.display='block';
