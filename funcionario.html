@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="theme-color" content="#1a1f2e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Meus Serviços">
+<title>OficinaControl — Funcionário</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:      #0d0f14;
+    --surface: #161a24;
+    --surface2:#1e2330;
+    --border:  #2a3040;
+    --text:    #f0f2f8;
+    --text2:   #8892a4;
+    --text3:   #4a5568;
+    --accent:  #f97316;
+    --green:   #22c55e;
+    --red:     #ef4444;
+    --blue:    #3b82f6;
+    --shadow:  0 4px 24px rgba(0,0,0,0.4);
+    --radius:  14px;
+    --font-head: 'Syne', sans-serif;
+    --font-body: 'DM Sans', sans-serif;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font-body); }
+
+  /* ── LOGIN ── */
+  #login-screen {
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .login-hero {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 48px 24px 24px;
+    background: linear-gradient(160deg, #1a0800 0%, var(--bg) 60%);
+    position: relative;
+    overflow: hidden;
+  }
+  .login-hero::before {
+    content: '';
+    position: absolute;
+    width: 360px; height: 360px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(249,115,22,0.2) 0%, transparent 70%);
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+  }
+  .login-hero-icon {
+    width: 80px; height: 80px;
+    background: var(--accent);
+    border-radius: 22px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 38px;
+    box-shadow: 0 8px 32px rgba(249,115,22,0.4);
+    position: relative; z-index: 1;
+  }
+  .login-hero-title {
+    font-family: var(--font-head);
+    font-size: 28px; font-weight: 800;
+    position: relative; z-index: 1;
+  }
+  .login-hero-title span { color: var(--accent); }
+  .login-hero-sub {
+    font-size: 13px; color: var(--text2);
+    position: relative; z-index: 1;
+  }
+  .login-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 28px 28px 0 0;
+    border-bottom: none;
+    padding: 28px 22px 40px;
+  }
+  .login-card h2 {
+    font-family: var(--font-head);
+    font-size: 20px; font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .login-card p { color: var(--text2); font-size: 13px; margin-bottom: 20px; }
+
+  /* Mechanic cards */
+  .mec-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .mec-card {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 8px; padding: 14px 8px;
+    background: var(--surface2);
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all .15s;
+    user-select: none;
+  }
+  .mec-card:active { transform: scale(.96); }
+  .mec-card.sel {
+    border-color: var(--accent);
+    background: rgba(249,115,22,.1);
+  }
+  .mec-avatar {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-head); font-size: 18px; font-weight: 800;
+  }
+  .mec-name { font-size: 12px; font-weight: 600; text-align: center; line-height: 1.2; }
+
+  /* Form controls */
+  .form-group { margin-bottom: 14px; }
+  label {
+    display: block; font-size: 11px; font-weight: 700;
+    color: var(--text3); text-transform: uppercase;
+    letter-spacing: .8px; margin-bottom: 6px;
+  }
+  .form-control {
+    width: 100%; background: var(--surface2);
+    border: 1px solid var(--border); border-radius: 10px;
+    padding: 0 14px; height: 48px; color: var(--text);
+    font-family: var(--font-body); font-size: 15px;
+    outline: none; transition: border-color .15s;
+  }
+  .form-control:focus { border-color: var(--accent); }
+  .btn-primary {
+    width: 100%; height: 50px;
+    background: var(--accent); color: #fff;
+    border: none; border-radius: 12px;
+    font-family: var(--font-head); font-size: 16px; font-weight: 700;
+    cursor: pointer; transition: opacity .15s;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .btn-primary:active { opacity: .85; }
+  .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+  .err { color: var(--red); font-size: 13px; margin-bottom: 12px; display: none; }
+
+  /* ── APP ── */
+  #app { display: none; min-height: 100dvh; flex-direction: column; }
+
+  /* Topbar */
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 16px; height: 56px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 10;
+  }
+  .topbar-left { display: flex; align-items: center; gap: 10px; }
+  .mec-chip {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 99px; padding: 4px 12px 4px 4px;
+  }
+  .mec-chip-av {
+    width: 28px; height: 28px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-head); font-size: 12px; font-weight: 800;
+  }
+  .mec-chip-name { font-size: 13px; font-weight: 600; }
+  .logout-btn {
+    background: none; border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text2);
+    padding: 6px 10px; font-size: 12px; cursor: pointer;
+    font-family: var(--font-body);
+  }
+
+  /* Content */
+  .content { padding: 16px; flex: 1; }
+
+  /* Date nav */
+  .date-nav {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 16px;
+  }
+  .nav-btn {
+    width: 36px; height: 36px; flex-shrink: 0;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text);
+    font-size: 14px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .date-info { flex: 1; }
+  .date-title {
+    font-family: var(--font-head); font-size: 18px; font-weight: 800;
+  }
+  .date-sub { font-size: 12px; color: var(--text2); margin-top: 2px; }
+
+  /* Summary card */
+  .summary {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 10px; margin-bottom: 16px;
+  }
+  .summary-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+  }
+  .summary-label { font-size: 11px; color: var(--text3); font-weight: 700; text-transform: uppercase; letter-spacing: .7px; margin-bottom: 6px; }
+  .summary-val { font-family: var(--font-head); font-size: 22px; font-weight: 800; }
+  .summary-val.green { color: var(--green); }
+  .summary-val.accent { color: var(--accent); }
+
+  /* Service rows */
+  .srv-list { display: flex; flex-direction: column; gap: 8px; }
+  .srv-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .srv-dot {
+    width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0;
+  }
+  .srv-info { flex: 1; min-width: 0; }
+  .srv-nome { font-size: 14px; font-weight: 600; }
+  .srv-vei { font-size: 12px; color: var(--text2); margin-top: 2px; }
+  .srv-val {
+    font-family: var(--font-head); font-size: 16px;
+    font-weight: 800; color: var(--green); flex-shrink: 0;
+  }
+
+  /* Week summary */
+  .week-box {
+    background: var(--surface);
+    border: 1px solid rgba(249,115,22,.3);
+    border-radius: var(--radius);
+    padding: 16px; margin-top: 20px;
+  }
+  .week-box-title {
+    font-size: 11px; font-weight: 700; color: var(--text3);
+    text-transform: uppercase; letter-spacing: .8px; margin-bottom: 12px;
+  }
+  .week-day-row {
+    display: flex; justify-content: space-between;
+    padding: 7px 0; border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .week-day-row:last-child { border-bottom: none; }
+  .week-total-row {
+    display: flex; justify-content: space-between;
+    padding-top: 10px; margin-top: 4px;
+    font-family: var(--font-head); font-size: 16px; font-weight: 800;
+  }
+
+  /* Empty */
+  .empty { text-align: center; padding: 48px 20px; color: var(--text2); }
+  .empty-icon { font-size: 48px; margin-bottom: 12px; }
+  .empty p { font-size: 14px; }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 18px;
+    font-size: 13px; font-weight: 600; z-index: 999;
+    opacity: 0; transition: opacity .3s;
+    white-space: nowrap;
+  }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-hero">
+    <div class="login-hero-icon">🔧</div>
+    <div class="login-hero-title">Oficina<span>Control</span></div>
+    <div class="login-hero-sub">Portal do Funcionário</div>
+  </div>
+  <div class="login-card">
+    <h2>Olá, quem é você? 👋</h2>
+    <p>Selecione seu nome e entre com sua senha.</p>
+    <div class="mec-grid" id="mec-grid">
+      <div style="color:var(--text3);font-size:13px;padding:12px 0;">Carregando...</div>
+    </div>
+    <div class="form-group" id="pwd-group" style="display:none;">
+      <label>Senha</label>
+      <input class="form-control" id="login-pwd" type="password"
+        placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <div class="err" id="login-err">Senha incorreta.</div>
+    <button class="btn-primary" id="login-btn" onclick="doFuncLogin()" style="display:none;">
+      Entrar →
+    </button>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" style="display:flex;">
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="mec-chip">
+        <div class="mec-chip-av" id="chip-av"></div>
+        <span class="mec-chip-name" id="chip-name"></span>
+      </div>
+    </div>
+    <button class="logout-btn" onclick="doFuncLogout()">Sair</button>
+  </div>
+  <div class="content" id="content"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyCu4OI7jZrhdkGVfpzKees94ZWXWsXu6SI",
+  authDomain: "oficinacontrol-bfcf4.firebaseapp.com",
+  projectId: "oficinacontrol-bfcf4",
+  storageBucket: "oficinacontrol-bfcf4.firebasestorage.app",
+  messagingSenderId: "10043815825",
+  appId: "1:10043815825:web:38b3d04aed3d3b3b038c30",
+  databaseURL: "https://oficinacontrol-bfcf4-default-rtdb.firebaseio.com/"
+};
+firebase.initializeApp(firebaseConfig);
+const rtdb  = firebase.database();
+const fbAuth = firebase.auth();
+
+// ── Utils ─────────────────────────────────────────────────────────
+async function sha256(str){
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+function todayStr(){ return new Date().toISOString().split('T')[0]; }
+function fmtDate(d){
+  return new Date(d+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric'});
+}
+function fmtDia(d){
+  const dias = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+  return dias[new Date(d+'T12:00:00').getDay()];
+}
+function fmtMoney(v){ return 'R$ '+(v||0).toFixed(2).replace('.',','); }
+function getWeekBounds(d){
+  const dt = new Date(d+'T12:00:00');
+  const day = dt.getDay();
+  const diff = (day===0)?-6:(1-day);
+  const mon = new Date(dt); mon.setDate(dt.getDate()+diff);
+  const sat = new Date(mon); sat.setDate(mon.getDate()+5);
+  return {
+    start: mon.toISOString().split('T')[0],
+    end:   sat.toISOString().split('T')[0]
+  };
+}
+function toast(msg){
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'), 2500);
+}
+
+const COR_HEX = {
+  'Branco':'#FFFFFF','Prata':'#C0C0C0','Cinza':'#808080','Preto':'#1a1a1a',
+  'Vermelho':'#DC2626','Azul':'#2563EB','Azul Marinho':'#1E3A8A','Verde':'#16A34A',
+  'Amarelo':'#EAB308','Laranja':'#F97316','Roxo':'#7C3AED','Rosa':'#EC4899',
+  'Marrom':'#92400E','Bege':'#D4B896','Dourado':'#B45309','Outra':'#6B7280'
+};
+const AVATAR_COLORS = ['#f97316','#3b82f6','#22c55e','#a855f7','#ec4899','#14b8a6','#eab308','#ef4444'];
+
+// ── State ─────────────────────────────────────────────────────────
+let allMecanicos = [];
+let allServicos  = [];
+let allVeiculos  = [];
+let allRegistros = [];
+let selectedMecId = null;
+let currentDate  = todayStr();
+
+// ── Login flow ────────────────────────────────────────────────────
+async function loadMecanicos(){
+  try {
+    await fbAuth.signInAnonymously();
+    const snap = await rtdb.ref('mecanicos').once('value');
+    allMecanicos = snap.val() || [];
+    renderMecGrid();
+  } catch(e){
+    document.getElementById('mec-grid').innerHTML =
+      '<p style="color:var(--red);font-size:13px;">Erro ao carregar. Verifique sua conexão.</p>';
+  }
+}
+
+function renderMecGrid(){
+  const grid = document.getElementById('mec-grid');
+  if(!allMecanicos.length){
+    grid.innerHTML = '<p style="color:var(--text3);font-size:13px;">Nenhum mecânico cadastrado.</p>';
+    return;
+  }
+  grid.innerHTML = allMecanicos.map((m,i)=>{
+    const cor = AVATAR_COLORS[i%AVATAR_COLORS.length];
+    return `<div class="mec-card" id="mc-${m.id}" onclick="selectMec(${m.id})">
+      <div class="mec-avatar" style="background:${cor}22;color:${cor};">${m.name[0]}</div>
+      <div class="mec-name">${m.name}</div>
+    </div>`;
+  }).join('');
+}
+
+function selectMec(id){
+  selectedMecId = id;
+  document.querySelectorAll('.mec-card').forEach(c=>c.classList.remove('sel'));
+  document.getElementById('mc-'+id)?.classList.add('sel');
+  document.getElementById('pwd-group').style.display = 'block';
+  document.getElementById('login-btn').style.display  = 'flex';
+  document.getElementById('login-err').style.display  = 'none';
+  setTimeout(()=>document.getElementById('login-pwd')?.focus(), 100);
+}
+
+async function doFuncLogin(){
+  if(!selectedMecId){ toast('Selecione seu nome'); return; }
+  const pwd  = document.getElementById('login-pwd').value;
+  const btn  = document.getElementById('login-btn');
+  const err  = document.getElementById('login-err');
+  if(!pwd){ err.style.display='block'; err.textContent='Digite sua senha.'; return; }
+  btn.textContent = 'Verificando...'; btn.disabled = true;
+  err.style.display = 'none';
+  try {
+    const hash = await sha256(pwd);
+    const snap = await rtdb.ref('config/mec_passwords/'+selectedMecId).once('value');
+    const stored = snap.val();
+    if(!stored){
+      err.style.display='block';
+      err.textContent='Senha não definida. Fale com o administrador.';
+    } else if(hash === stored){
+      await loginSuccess();
+    } else {
+      err.style.display='block';
+      err.textContent='Senha incorreta.';
+    }
+  } catch(e){
+    err.style.display='block';
+    err.textContent='Erro de conexão.';
+  } finally {
+    btn.textContent='Entrar →'; btn.disabled=false;
+  }
+}
+
+async function loginSuccess(){
+  // Carrega todos os dados necessários
+  const [sSnap, vSnap, rSnap] = await Promise.all([
+    rtdb.ref('servicos').once('value'),
+    rtdb.ref('veiculos').once('value'),
+    rtdb.ref('registros').once('value'),
+  ]);
+  allServicos  = sSnap.val() || [];
+  allVeiculos  = vSnap.val() || [];
+  const rVal   = rSnap.val();
+  allRegistros = rVal ? Object.values(rVal) : [];
+
+  // Atualiza topbar
+  const mec = allMecanicos.find(m=>m.id===selectedMecId);
+  const idx = allMecanicos.indexOf(mec);
+  const cor = AVATAR_COLORS[idx%AVATAR_COLORS.length];
+  const chipAv = document.getElementById('chip-av');
+  chipAv.textContent = mec.name[0];
+  chipAv.style.background = cor+'22';
+  chipAv.style.color = cor;
+  document.getElementById('chip-name').textContent = mec.name;
+
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  renderApp();
+
+  // Escuta atualizações em tempo real
+  rtdb.ref('registros').on('value', snap=>{
+    const v = snap.val();
+    allRegistros = v ? Object.values(v) : [];
+    renderApp();
+  });
+}
+
+function doFuncLogout(){
+  fbAuth.signOut().catch(()=>{});
+  rtdb.ref('registros').off();
+  selectedMecId = null;
+  currentDate   = todayStr();
+  document.getElementById('login-pwd').value = '';
+  document.querySelectorAll('.mec-card').forEach(c=>c.classList.remove('sel'));
+  document.getElementById('pwd-group').style.display = 'none';
+  document.getElementById('login-btn').style.display  = 'none';
+  document.getElementById('login-err').style.display  = 'none';
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+}
+
+// ── App render ────────────────────────────────────────────────────
+function navDia(delta){
+  const dt = new Date(currentDate+'T12:00:00');
+  dt.setDate(dt.getDate()+delta);
+  currentDate = dt.toISOString().split('T')[0];
+  renderApp();
+}
+
+function renderApp(){
+  const dayRegs = allRegistros
+    .filter(r=>r.mecanicoId===selectedMecId && r.date===currentDate)
+    .sort((a,b)=>a.id-b.id);
+  const dayTotal = dayRegs.reduce((s,r)=>s+r.value,0);
+  const isToday  = currentDate===todayStr();
+
+  // Week summary
+  const wb = getWeekBounds(currentDate);
+  const weekRegs = allRegistros.filter(r=>r.mecanicoId===selectedMecId && r.date>=wb.start && r.date<=wb.end);
+  const byDay = {};
+  weekRegs.forEach(r=>{ if(!byDay[r.date]) byDay[r.date]=0; byDay[r.date]+=r.value; });
+  const weekTotal = weekRegs.reduce((s,r)=>s+r.value,0);
+  const DIAS = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+
+  const srvCards = dayRegs.length ? dayRegs.map(r=>{
+    const srv = allServicos.find?.(s=>s.id===r.servicoId) ||
+      (Array.isArray(allServicos) ? allServicos.find(s=>s.id===r.servicoId) : null);
+    const vei = Array.isArray(allVeiculos) ? allVeiculos.find(v=>v.id===r.veiculoId) : null;
+    const nome = r.nomeAvulso || srv?.name || '?';
+    const dotColor = COR_HEX[r.cor] || '#6B7280';
+    const dotBorder = r.cor==='Branco'?'border:1.5px solid #555':'';
+    return `<div class="srv-card">
+      <div class="srv-dot" style="background:${dotColor};${dotBorder}"></div>
+      <div class="srv-info">
+        <div class="srv-nome">${nome}${r.nomeAvulso?' <span style="background:rgba(249,115,22,.15);color:var(--accent);font-size:10px;padding:1px 6px;border-radius:4px;font-weight:600;">avulso</span>':''}</div>
+        <div class="srv-vei">${vei?vei.marca+' '+vei.modelo:'Veículo não encontrado'}</div>
+      </div>
+      <div class="srv-val">${fmtMoney(r.value)}</div>
+    </div>`;
+  }).join('') : `<div class="empty">
+    <div class="empty-icon">📋</div>
+    <p>Nenhum serviço ${isToday?'hoje':'nesta data'}</p>
+  </div>`;
+
+  const weekDayRows = Object.keys(byDay).sort().map(date=>{
+    const dt = new Date(date+'T12:00:00');
+    const dNome = DIAS[dt.getDay()];
+    return `<div class="week-day-row">
+      <span style="color:var(--text2)">${dNome} <span style="font-size:11px;">${fmtDate(date)}</span></span>
+      <span style="font-weight:700;color:var(--green);">${fmtMoney(byDay[date])}</span>
+    </div>`;
+  }).join('');
+
+  document.getElementById('content').innerHTML = `
+    <!-- Navegação de data -->
+    <div class="date-nav">
+      <button class="nav-btn" onclick="navDia(-1)">◀</button>
+      <div class="date-info">
+        <div class="date-title">${isToday?'Hoje':'${fmtDia(currentDate)}'}</div>
+        <div class="date-title" style="font-size:15px;">${fmtDia(currentDate)}, ${fmtDate(currentDate)}</div>
+        <div class="date-sub">${dayRegs.length} serviço(s)</div>
+      </div>
+      <button class="nav-btn" onclick="navDia(1)">▶</button>
+    </div>
+
+    <!-- Resumo do dia -->
+    <div class="summary">
+      <div class="summary-card">
+        <div class="summary-label">Serviços</div>
+        <div class="summary-val accent">${dayRegs.length}</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">Total do dia</div>
+        <div class="summary-val green">${fmtMoney(dayTotal)}</div>
+      </div>
+    </div>
+
+    <!-- Lista de serviços -->
+    <div class="srv-list">${srvCards}</div>
+
+    <!-- Resumo da semana -->
+    ${weekTotal>0?`
+    <div class="week-box">
+      <div class="week-box-title">📅 Semana (${fmtDate(wb.start)} – ${fmtDate(wb.end)})</div>
+      ${weekDayRows}
+      <div class="week-total-row">
+        <span>Total da semana</span>
+        <span style="color:var(--accent)">${fmtMoney(weekTotal)}</span>
+      </div>
+    </div>`:''}
+  `;
+}
+
+// ── Enter key ──────────────────────────────────────────────────────
+document.addEventListener('keydown', e=>{
+  if(e.key==='Enter' && document.getElementById('login-screen').style.display!=='none') doFuncLogin();
+});
+
+// ── Init ───────────────────────────────────────────────────────────
+loadMecanicos();
+</script>
+</body>
+</html>
