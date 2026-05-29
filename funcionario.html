@@ -680,7 +680,7 @@ function showInstallHelp(){
   overlay.innerHTML = '<div style="background:#1e2330;border-radius:20px 20px 0 0;padding:28px 22px 44px;width:100%;border-top:2px solid #f97316;">'
     + '<div style="font-family:Syne,sans-serif;font-size:17px;font-weight:800;margin-bottom:16px;color:#f0f2f8;">📲 Instalar App</div>'
     + '<div style="font-size:14px;color:#8892a4;line-height:1.9;">' + steps + '</div>'
-    + '<button onclick="document.getElementById('install-overlay').remove()" style="margin-top:22px;width:100%;height:48px;background:#f97316;color:#fff;border:none;border-radius:12px;font-family:Syne,sans-serif;font-size:15px;font-weight:700;cursor:pointer;">Entendi!</button>'
+    + '<button onclick="document.getElementById(\'install-overlay\').remove()" style="margin-top:22px;width:100%;height:48px;background:#f97316;color:#fff;border:none;border-radius:12px;font-family:Syne,sans-serif;font-size:15px;font-weight:700;cursor:pointer;">Entendi!</button>'
     + '</div>';
   document.body.appendChild(overlay);
   overlay.addEventListener('click', function(e){ if(e.target===overlay) overlay.remove(); });
