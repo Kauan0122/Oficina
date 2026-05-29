@@ -394,21 +394,42 @@ let currentDate  = todayStr();
 
 // ── Login flow ────────────────────────────────────────────────────
 async function loadMecanicos(){
-  document.getElementById('mec-grid').innerHTML =
-    '<p style="color:var(--text3);font-size:13px;padding:12px 0;">Carregando...</p>';
+  const grid = document.getElementById('mec-grid');
+  grid.innerHTML = '<p style="color:var(--text3);font-size:13px;padding:12px 0;">Carregando...</p>';
+
+  // Timeout de 8s para evitar ficar preso
+  const timeout = setTimeout(() => {
+    grid.innerHTML = '<div style="color:var(--red);font-size:13px;">'
+      + 'Tempo esgotado. Verifique sua conexão.<br>'
+      + '<button onclick="loadMecanicos()" style="margin-top:10px;background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:13px;">Tentar novamente</button>'
+      + '</div>';
+  }, 8000);
+
   try {
-    if(!fbAuth.currentUser) await fbAuth.signInAnonymously();
+    // Autentica se necessário
+    if(!fbAuth.currentUser){
+      await fbAuth.signInAnonymously();
+    }
+    // Aguarda auth state para garantir token
+    await new Promise(resolve => {
+      if(fbAuth.currentUser){ resolve(); return; }
+      const unsub = fbAuth.onAuthStateChanged(u => { if(u){ unsub(); resolve(); } });
+    });
+
     const snap = await rtdb.ref('mecanicos').once('value');
+    clearTimeout(timeout);
     const val = snap.val();
-    // Firebase pode retornar array ou objeto — normaliza para array
     if(!val) allMecanicos = [];
     else if(Array.isArray(val)) allMecanicos = val.filter(Boolean);
     else allMecanicos = Object.values(val);
     renderMecGrid();
   } catch(e){
+    clearTimeout(timeout);
     console.error('loadMecanicos:', e);
-    document.getElementById('mec-grid').innerHTML =
-      '<p style="color:var(--red);font-size:13px;">Erro ao carregar. Verifique sua conexão.<br><small>' + e.message + '</small></p>';
+    grid.innerHTML = '<div style="color:var(--red);font-size:13px;">'
+      + 'Erro: ' + (e.message||'desconhecido') + '<br>'
+      + '<button onclick="loadMecanicos()" style="margin-top:10px;background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:13px;">Tentar novamente</button>'
+      + '</div>';
   }
 }
 
