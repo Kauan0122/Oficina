@@ -9,6 +9,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Meus Serviços">
 <title>OficinaControl — Funcionário</title>
+<link rel="manifest" href="manifest-func.json">
+<link rel="apple-touch-icon" href="icon.svg">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -285,6 +287,13 @@
     <div class="login-hero-icon">🔧</div>
     <div class="login-hero-title">Oficina<span>Control</span></div>
     <div class="login-hero-sub">Portal do Funcionário</div>
+  <div id="install-bar" style="display:none;margin-top:8px;">
+    <button onclick="installPWA()" style="background:var(--accent);color:#fff;border:none;
+      border-radius:10px;padding:10px 20px;font-family:var(--font-head);font-size:13px;
+      font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;">
+      📲 Instalar App
+    </button>
+  </div>
   </div>
   <div class="login-card">
     <h2>Olá, quem é você? 👋</h2>
@@ -387,11 +396,20 @@ let currentDate  = todayStr();
 // ── Login flow ────────────────────────────────────────────────────
 async function loadMecanicos(){
   try {
+    // Garante sessão limpa antes de autenticar
+    if(fbAuth.currentUser) await fbAuth.signOut();
     await fbAuth.signInAnonymously();
+    // Aguarda auth state confirmado
+    await new Promise(resolve => {
+      const unsub = fbAuth.onAuthStateChanged(user => {
+        if(user){ unsub(); resolve(); }
+      });
+    });
     const snap = await rtdb.ref('mecanicos').once('value');
     allMecanicos = snap.val() || [];
     renderMecGrid();
   } catch(e){
+    console.error('loadMecanicos:', e);
     document.getElementById('mec-grid').innerHTML =
       '<p style="color:var(--red);font-size:13px;">Erro ao carregar. Verifique sua conexão.</p>';
   }
@@ -486,7 +504,6 @@ async function loginSuccess(){
 }
 
 function doFuncLogout(){
-  fbAuth.signOut().catch(()=>{});
   rtdb.ref('registros').off();
   selectedMecId = null;
   currentDate   = todayStr();
@@ -497,6 +514,8 @@ function doFuncLogout(){
   document.getElementById('login-err').style.display  = 'none';
   document.getElementById('app').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
+  // Re-autentica em background para próximo login
+  loadMecanicos();
 }
 
 // ── App render ────────────────────────────────────────────────────
@@ -595,6 +614,25 @@ function renderApp(){
 document.addEventListener('keydown', e=>{
   if(e.key==='Enter' && document.getElementById('login-screen').style.display!=='none') doFuncLogin();
 });
+
+// ── PWA Install ───────────────────────────────────────────────────
+let _installPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  _installPrompt = e;
+  document.getElementById('install-bar').style.display = 'flex';
+});
+window.addEventListener('appinstalled', () => {
+  document.getElementById('install-bar').style.display = 'none';
+});
+function installPWA(){
+  if(!_installPrompt){ return; }
+  _installPrompt.prompt();
+  _installPrompt.userChoice.then(()=>{ _installPrompt=null; });
+}
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('./sw-func.js').catch(()=>{});
+}
 
 // ── Init ───────────────────────────────────────────────────────────
 loadMecanicos();
