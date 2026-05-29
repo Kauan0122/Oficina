@@ -540,12 +540,14 @@
     grid-template-columns:1fr 1fr 1fr 120px 100px;
   }
   .qfg-vales {
-    grid-template-columns:1fr 1fr 120px 100px;
+    grid-template-columns:1fr 1fr;
   }
+  .qfg-vales .val-full { grid-column:1/-1; }
+  .qfg-vales .val-action { grid-column:1/-1; }
   .modal-btns {
     display:flex; gap:10px; justify-content:flex-end; margin-top:8px; flex-wrap:wrap;
   }
-  .tbl-actions { display:flex; gap:6px; flex-wrap:wrap; }
+  .tbl-actions { display:flex; gap:4px; flex-wrap:nowrap; align-items:center; white-space:nowrap; }
   .week-header-right { display:flex; align-items:center; gap:16px; flex-shrink:0; }
   .week-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
 
@@ -579,7 +581,6 @@
     .quick-form { padding:16px; }
     .quick-form-grid,
     .qfg-registro, .qfg-avulso { grid-template-columns:1fr 1fr !important; }
-    .qfg-vales { grid-template-columns:1fr 1fr !important; }
 
     /* Backup */
     .backup-grid { grid-template-columns:1fr !important; }
@@ -644,9 +645,10 @@
     /* Formularios: 1 coluna */
     .quick-form { padding:12px; }
     .quick-form-grid,
-    .qfg-registro, .qfg-avulso, .qfg-vales {
+    .qfg-registro, .qfg-avulso {
       grid-template-columns:1fr !important;
     }
+    /* qfg-vales mantém 2 colunas no mobile */
 
     /* Page header */
     .page-header { flex-direction:column; align-items:flex-start; gap:10px; }
@@ -1463,26 +1465,29 @@ function renderRegistro(){
     </div>
 
     <!-- CABEÇALHO DA TABELA com navegação de data -->
-    <div class="page-header">
-      <div class="page-header-left">
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-          <button class="btn btn-ghost btn-sm btn-icon" onclick="regNavDia(-1)" title="Dia anterior">◀</button>
-          <div>
-            <div class="page-header-title" id="reg-tbl-title">
-              ${isToday?'Registros de Hoje':'Registros — '+fmtDate(regData)}
-            </div>
-            <div class="page-header-sub" id="reg-tbl-sub">
-              ${daySrvs} serviço(s)${daySrvs>0?' · <strong style="color:var(--green)">'+fmtMoney(dayTotal)+'</strong>':''}
-            </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin:20px 0 10px;">
+
+      <!-- Setas + título centralizados -->
+      <div style="display:flex;align-items:center;gap:6px;min-width:0;flex:1;">
+        <button class="btn btn-ghost btn-sm btn-icon" onclick="regNavDia(-1)" title="Dia anterior"
+          style="flex-shrink:0;width:34px;height:34px;padding:0;display:flex;align-items:center;justify-content:center;">◀</button>
+        <div style="min-width:0;flex:1;">
+          <div class="page-header-title" id="reg-tbl-title"
+            style="font-size:clamp(15px,4vw,22px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+            ${isToday?'Registros de Hoje':'Registros — '+fmtDate(regData)}
           </div>
-          <button class="btn btn-ghost btn-sm btn-icon" onclick="regNavDia(1)" title="Próximo dia">▶</button>
+          <div class="page-header-sub" id="reg-tbl-sub" style="font-size:12px;">
+            ${daySrvs} serviço(s)${daySrvs>0?' · <strong style="color:var(--green)">'+fmtMoney(dayTotal)+'</strong>':''}
+          </div>
         </div>
+        <button class="btn btn-ghost btn-sm btn-icon" onclick="regNavDia(1)" title="Próximo dia"
+          style="flex-shrink:0;width:34px;height:34px;padding:0;display:flex;align-items:center;justify-content:center;">▶</button>
       </div>
-      <div class="page-header-right">
-        <div class="search-bar">
-          <span>🔍</span>
-          <input type="text" placeholder="Filtrar..." oninput="filterTable(this,'reg-table')" />
-        </div>
+
+      <!-- Busca -->
+      <div class="search-bar" style="flex:1;max-width:220px;min-width:140px;">
+        <span>🔍</span>
+        <input type="text" placeholder="Filtrar..." oninput="filterTable(this,'reg-table')" />
       </div>
     </div>
 
@@ -1498,12 +1503,11 @@ function renderRegistro(){
           </tbody>
         </table>
       </div>
-      ${daySrvs>0?`
-      <div style="display:flex;justify-content:flex-end;padding:12px 16px 4px;border-top:1px solid var(--border);margin-top:4px;">
+      <div id="reg-total-bar" style="display:${daySrvs>0?'flex':'none'};justify-content:flex-end;padding:12px 16px 4px;border-top:1px solid var(--border);margin-top:4px;">
         <div style="font-family:var(--font-head);font-size:16px;font-weight:800;">
-          Total: <span style="color:var(--accent)">${fmtMoney(dayTotal)}</span>
+          Total: <span style="color:var(--accent)" id="reg-total-val">${fmtMoney(dayTotal)}</span>
         </div>
-      </div>`:''}
+      </div>
     </div>
   `;
 }
@@ -1550,6 +1554,10 @@ function regAtualizarTabela(){
   if(tbody) tbody.innerHTML = regBuildRows(dateRegs, mecanicos, servicos, veiculos);
   if(title) title.textContent = isToday?'Registros de Hoje':'Registros — '+fmtDate(regData);
   if(sub)   sub.innerHTML = `${dateRegs.length} serviço(s)${dateRegs.length>0?' · <strong style="color:var(--green)">'+fmtMoney(dayTotal)+'</strong>':''}`;
+  const totalBar = document.getElementById('reg-total-bar');
+  const totalVal = document.getElementById('reg-total-val');
+  if(totalBar) totalBar.style.display = dayTotal>0?'flex':'none';
+  if(totalVal) totalVal.textContent = fmtMoney(dayTotal);
 }
 
 function regUpdateValue(){
@@ -1992,7 +2000,7 @@ function renderMecanicos(){
                 <td><strong>${m.name}</strong></td>
                 <td>
                   <div class="tbl-actions">
-                    <button class="btn btn-ghost btn-sm" onclick="openMecanicoModal(${m.id})">✏️<span class="btn-txt"> Editar</span></button>
+                    <button class="btn btn-ghost btn-sm btn-icon" onclick="openMecanicoModal(${m.id})" title="Editar">✏️</button>
                     <button class="btn btn-danger btn-sm" onclick="deleteMecanico(${m.id})">🗑</button>
                   </div>
                 </td>
@@ -2088,7 +2096,7 @@ function renderServicos(){
                 <td><strong style="color:var(--green)">${fmtMoney(s.value)}</strong></td>
                 <td>
                   <div class="tbl-actions">
-                    <button class="btn btn-ghost btn-sm" onclick="openServicoModal(${s.id})">✏️<span class="btn-txt"> Editar</span></button>
+                    <button class="btn btn-ghost btn-sm btn-icon" onclick="openServicoModal(${s.id})" title="Editar">✏️</button>
                     <button class="btn btn-danger btn-sm" onclick="deleteServico(${s.id})">🗑</button>
                   </div>
                 </td>
@@ -2199,8 +2207,8 @@ function renderVeiculos(){
                 <td>${v.marca}</td>
                 <td><strong>${v.modelo}</strong></td>
                 <td class="tbl-actions">
-                  <button class="btn btn-ghost btn-sm" onclick="openVeiculoModal(${v.id})">✏️<span class="btn-txt"> Editar</span></button>
-                  <button class="btn btn-danger btn-sm" onclick="deleteVeiculo(${v.id})">🗑</button>
+                  <button class="btn btn-ghost btn-sm btn-icon" onclick="openVeiculoModal(${v.id})" title="Editar">✏️</button>
+                  <button class="btn btn-danger btn-sm btn-icon" onclick="deleteVeiculo(${v.id})" title="Excluir">🗑</button>
                 </td>
               </tr>`).join('')
             }
@@ -2280,7 +2288,7 @@ function renderVales(){
         <div class="form-group" style="margin:0"><label>Mecânico</label><select class="form-control" id="vale-mec"><option value="">Selecione...</option>${mecOptions}</select></div>
         <div class="form-group" style="margin:0"><label>Motivo/Descrição</label><input type="text" class="form-control" id="vale-desc" placeholder="Ex: Adiantamento semana"></div>
         <div class="form-group" style="margin:0"><label>Valor</label><input type="number" class="form-control" id="vale-val" min="0" step="0.01" style="color:var(--red);font-weight:700;"></div>
-        <div class="form-group" style="margin:0"><label>Ação</label><button class="btn btn-danger" style="width:100%;height:44px;" onclick="salvarVale()">Lançar</button></div>
+        <div class="form-group" style="margin:0"><label>Ação</label><button class="btn btn-primary" style="width:100%;height:44px;justify-content:center;" onclick="salvarVale()">✓ Lançar</button></div>
       </div>
     </div>
     <div class="card">
