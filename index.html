@@ -993,10 +993,10 @@ const SYNC = {
 
   startListening(){
     setSyncStatus('syncing');
-    // Se não conectar em 8s, mostra erro
-    const errorTimer = setTimeout(() => setSyncStatus('error'), 8000);
-    rtdb.ref().on('value', snapshot => {
-      clearTimeout(errorTimer);
+    // Só liga o listener RTDB quando o Auth confirmar o token
+    fbAuth.onAuthStateChanged(user => {
+      if(!user) return; // ainda sem auth, aguarda
+      rtdb.ref().on('value', snapshot => {
       const data = snapshot.val();
       if(data){
         if(data.registros) DB.set('registros', Object.values(data.registros));
@@ -1032,9 +1032,10 @@ const SYNC = {
         }
       }
       setSyncStatus('ok');
-    }, () => {
-      setSyncStatus('error');
-    });
+      }, () => {
+        setSyncStatus('error');
+      });
+    }); // onAuthStateChanged
   }
 };
 
