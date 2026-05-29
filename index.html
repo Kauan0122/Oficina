@@ -776,6 +776,9 @@
         <div class="nav-item" onclick="navigate('registro')" role="button" tabindex="0">
           <span class="nav-icon">✏️</span> Registrar Serviço
         </div>
+        <div class="nav-item" onclick="navigate('rapido')" role="button" tabindex="0">
+          <span class="nav-icon">⚡</span> Registro Rápido
+        </div>
       </div>
       <div class="nav-section">
         <div class="nav-section-label">Cadastros</div>
@@ -1079,12 +1082,14 @@ function fmtDate(d){
   return `${day}/${m}/${y}`;
 }
 function todayStr(){ return new Date().toISOString().split('T')[0]; }
+// Remove chaves undefined/null antes de enviar ao Firebase
+function cleanObj(obj){ return JSON.parse(JSON.stringify(obj, (_,v)=>v===undefined?undefined:v)); }
 function getWeekBounds(d){
   const dt = new Date(d+'T12:00:00');
   const day = dt.getDay();
   const diff = day === 0 ? 6 : day-1; // Monday=0
   const mon = new Date(dt); mon.setDate(dt.getDate()-diff);
-  const sat = new Date(mon); sat.setDate(mon.getDate()+6);
+  const sat = new Date(mon); sat.setDate(mon.getDate()+5);
   return {
     start: mon.toISOString().split('T')[0],
     end: sat.toISOString().split('T')[0]
@@ -1101,7 +1106,7 @@ function doLogin(){
   if(u==='admin' && p==='1234'){
     document.getElementById('login-screen').style.display='none';
     document.getElementById('app').style.display='block';
-    navigate('dashboard');
+    navigate('rapido');
     // Sync em segundo plano
     if(SYNC.isConfigured()) SYNC.syncOnLoad();
     else setSyncStatus('off');
@@ -1129,13 +1134,13 @@ function navigate(page){
     el.classList.toggle('active', el.getAttribute('onclick')===`navigate('${page}')`);
   });
   const titles = {
-    dashboard:'Dashboard', registro:'Registrar Serviço',
+    dashboard:'Dashboard', registro:'Registrar Serviço', rapido:'⚡ Registro Rápido',
     mecanicos:'Mecânicos', servicos:'Serviços', veiculos:'Veículos',
     vales:'Vales', fechamento:'Fechamento Semanal', historico:'Histórico',
     backup:'Backup / Restaurar Dados'
   };
   document.getElementById('topbar-title').textContent = titles[page]||page;
-  const pages = {dashboard:renderDashboard, registro:renderRegistro,
+  const pages = {dashboard:renderDashboard, registro:renderRegistro, rapido:renderRapido,
     mecanicos:renderMecanicos, servicos:renderServicos, veiculos:renderVeiculos,
     vales:renderVales, fechamento:renderFechamento, historico:renderHistorico,
     backup:renderBackup};
@@ -1334,205 +1339,616 @@ function renderDashboard(){
   }
 }
 
-function updateValue(){
-  const srvEl = document.getElementById('reg-srv');
-  const selectedOption = srvEl.options[srvEl.selectedIndex];
-  const value = selectedOption.dataset.value;
-  document.getElementById('reg-value').value = value || '';
-}
+
+
 
 // ══════════════════════════════════
-//  REGISTRO DE SERVIÇOS
+//  COR PICKER (compartilhado)
 // ══════════════════════════════════
-function setModoAvulso(status){
-  modoAvulso = status;
-  renderRegistro();
-}
+// ══════════════════════════════════
+//  REGISTRAR SERVIÇO
+// ══════════════════════════════════
+let regData    = todayStr(); // data atual do formulário
+let regEditing = null;       // id em edição (null = novo)
+let regAvulso  = false;      // modo avulso
 
-let modoAvulso = false;
+function setRegAvulso(v){ regAvulso=v; renderRegistro(); }
 
 function renderRegistro(){
   const mecanicos = DB.get('mecanicos')||[];
-  const servicos = DB.get('servicos')||[];
-  const veiculos = DB.get('veiculos')||[];
+  const servicos  = DB.get('servicos')||[];
+  const veiculos  = DB.get('veiculos')||[];
   const registros = DB.get('registros')||[];
-  const today = todayStr();
 
   const mecOptions = mecanicos.map(m=>`<option value="${m.id}">${m.code} — ${m.name}</option>`).join('');
   const srvOptions = servicos.map(s=>`<option value="${s.id}" data-value="${s.value}">${s.code} — ${s.name} (${fmtMoney(s.value)})</option>`).join('');
-  const veiOptions = veiculos.map(v=>`<option value="${v.id}">${v.marca} ${v.modelo}${v.cor?' — '+v.cor:''}</option>`).join('');
+  const veiOptions = veiculos.map(v=>`<option value="${v.id}">${v.marca} ${v.modelo}</option>`).join('');
 
-  const todayRegs = registros.filter(r=>r.date===today).reverse();
+  const editing  = regEditing !== null;
+  const dateRegs = registros.filter(r=>r.date===regData).sort((a,b)=>b.id-a.id);
+  const dayTotal = dateRegs.reduce((s,r)=>s+r.value,0);
+  const daySrvs  = dateRegs.length;
+
+  // Navegação de data: dia anterior e próximo
+  const prevDay = d => { const dt=new Date(d+'T12:00:00'); dt.setDate(dt.getDate()-1); return dt.toISOString().split('T')[0]; };
+  const nextDay = d => { const dt=new Date(d+'T12:00:00'); dt.setDate(dt.getDate()+1); return dt.toISOString().split('T')[0]; };
+  const isToday = regData === todayStr();
 
   document.getElementById('page-content').innerHTML = `
-    <div class="quick-form">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
-        <div class="page-header-title">➕ Novo Registro</div>
+    <!-- FORMULÁRIO -->
+    <div class="quick-form" id="reg-form-box" style="${editing?'border:2px solid var(--accent);':''}">
+
+      <!-- Cabeçalho -->
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <div class="page-header-title">${editing?'✏️ Editando':'➕ Novo Registro'}</div>
+          ${editing?`<button class="btn btn-ghost btn-sm" onclick="regCancelarEdicao()">✕ Cancelar</button>`:''}
+        </div>
         <div style="display:flex;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:3px;gap:3px;">
-          <button id="tab-lista" onclick="setModoAvulso(false)"
-            style="padding:7px 16px;border-radius:6px;border:none;cursor:pointer;font-family:var(--font-body);font-size:13px;font-weight:600;transition:all 0.15s;
-            background:${!modoAvulso?'var(--accent)':'transparent'};color:${!modoAvulso?'#fff':'var(--text2)'};">
+          <button onclick="setRegAvulso(false)" style="padding:7px 16px;border-radius:6px;border:none;cursor:pointer;
+            font-family:var(--font-body);font-size:13px;font-weight:600;transition:all .15s;
+            background:${!regAvulso?'var(--accent)':'transparent'};color:${!regAvulso?'#fff':'var(--text2)'};">
             📋 Da Lista
           </button>
-          <button id="tab-avulso" onclick="setModoAvulso(true)"
-            style="padding:7px 16px;border-radius:6px;border:none;cursor:pointer;font-family:var(--font-body);font-size:13px;font-weight:600;transition:all 0.15s;
-            background:${modoAvulso?'var(--accent)':'transparent'};color:${modoAvulso?'#fff':'var(--text2)'};">
+          <button onclick="setRegAvulso(true)" style="padding:7px 16px;border-radius:6px;border:none;cursor:pointer;
+            font-family:var(--font-body);font-size:13px;font-weight:600;transition:all .15s;
+            background:${regAvulso?'var(--accent)':'transparent'};color:${regAvulso?'#fff':'var(--text2)'};">
             ✏️ Avulso
           </button>
         </div>
       </div>
 
-      <!-- MODO: DA LISTA -->
-      <div id="form-lista" style="display:${!modoAvulso?'block':'none'}">
+      <!-- Data do serviço -->
+      <div class="form-group" style="margin-bottom:16px;max-width:240px;">
+        <label>📅 Data do Serviço</label>
+        <input type="date" class="form-control" id="reg-date" value="${regData}"
+          onchange="regData=this.value; regAtualizarTabela()">
+      </div>
+
+      <!-- LISTA -->
+      <div style="display:${!regAvulso?'block':'none'}">
         <div class="quick-form-grid qfg-registro">
           <div class="form-group" style="margin:0">
             <label>Mecânico</label>
-            <select class="form-control" id="reg-mec">
-              <option value="">Selecione...</option>
-              ${mecOptions}
-            </select>
+            <select class="form-control" id="reg-mec"><option value="">Selecione...</option>${mecOptions}</select>
           </div>
           <div class="form-group" style="margin:0">
             <label>Veículo</label>
-            <select class="form-control" id="reg-vei">
-              <option value="">Selecione...</option>
-              ${veiOptions}
-            </select>
+            <select class="form-control" id="reg-vei"><option value="">Selecione...</option>${veiOptions}</select>
           </div>
           <div class="form-group" style="margin:0">
             <label>Serviço</label>
-            <select class="form-control" id="reg-srv" onchange="updateValue()">
-              <option value="">Selecione...</option>
-              ${srvOptions}
-            </select>
+            <select class="form-control" id="reg-srv" onchange="regUpdateValue()"><option value="">Selecione...</option>${srvOptions}</select>
           </div>
           <div class="form-group" style="margin:0">
-            <label>Valor</label>
-            <input type="number" class="form-control" id="reg-value" min="0" step="0.01" placeholder="0,00"
-                style="color:var(--green);font-weight:700;">
+            <label>Valor (R$)</label>
+            <input type="number" class="form-control" id="reg-value" min="0" step="0.01" placeholder="0,00" style="color:var(--green);font-weight:700;">
           </div>
           <div class="form-group" style="margin:0">
-            <label>Ação</label>
-            <button class="btn btn-primary" style="width:100%;justify-content:center;height:44px;" onclick="salvarRegistro()">✓ OK</button>
+            <label>&nbsp;</label>
+            <button class="btn btn-primary" style="width:100%;height:44px;justify-content:center;" onclick="regSalvar()">
+              ${editing?'💾 Atualizar':'✓ Salvar'}
+            </button>
           </div>
+          ${corPickerHTML('reg')}
         </div>
       </div>
 
-      <!-- MODO: AVULSO -->
-      <div id="form-avulso" style="display:${modoAvulso?'block':'none'}">
-        <div class="quick-form-grid qfg-avulso">
+      <!-- AVULSO -->
+      <div style="display:${regAvulso?'block':'none'}">
+        <div class="quick-form-grid qfg-registro">
           <div class="form-group" style="margin:0">
             <label>Mecânico</label>
-            <select class="form-control" id="av-mec">
-              <option value="">Selecione...</option>
-              ${mecOptions}
-            </select>
+            <select class="form-control" id="av-mec"><option value="">Selecione...</option>${mecOptions}</select>
           </div>
           <div class="form-group" style="margin:0">
             <label>Veículo</label>
-            <select class="form-control" id="av-vei">
-              <option value="">Selecione...</option>
-              ${veiOptions}
-            </select>
+            <select class="form-control" id="av-vei"><option value="">Selecione...</option>${veiOptions}</select>
           </div>
           <div class="form-group" style="margin:0">
-            <label>Descrição do Serviço</label>
+            <label>Descrição</label>
             <input type="text" class="form-control" id="av-nome" placeholder="Ex: Ajuste fino...">
           </div>
           <div class="form-group" style="margin:0">
-            <label>Valor</label>
-            <input type="number" class="form-control" id="av-valor" min="0" step="0.01" placeholder="0,00"
-                style="color:var(--green);font-weight:700;">
+            <label>Valor (R$)</label>
+            <input type="number" class="form-control" id="av-valor" min="0" step="0.01" placeholder="0,00" style="color:var(--green);font-weight:700;">
           </div>
           <div class="form-group" style="margin:0">
-            <label>Ação</label>
-            <button class="btn btn-primary" style="width:100%;justify-content:center;height:44px;" onclick="salvarAvulso()">✓ OK</button>
+            <label>&nbsp;</label>
+            <button class="btn btn-primary" style="width:100%;height:44px;justify-content:center;" onclick="regSalvarAvulso()">
+              ${editing?'💾 Atualizar':'✓ Salvar'}
+            </button>
           </div>
+          ${corPickerHTML('av')}
         </div>
       </div>
     </div>
 
+    <!-- CABEÇALHO DA TABELA com navegação de data -->
     <div class="page-header">
       <div class="page-header-left">
-        <div class="page-header-title">Registros de Hoje</div>
-        <div class="page-header-sub">${fmtDate(today)} — ${todayRegs.length} serviço(s)</div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-ghost btn-sm btn-icon" onclick="regData='${prevDay(regData)}';regAtualizarTabela();document.getElementById('reg-date').value=regData;" title="Dia anterior">◀</button>
+          <div>
+            <div class="page-header-title" id="reg-tbl-title">
+              ${isToday?'Registros de Hoje':'Registros — '+fmtDate(regData)}
+            </div>
+            <div class="page-header-sub" id="reg-tbl-sub">
+              ${daySrvs} serviço(s)${daySrvs>0?' · <strong style="color:var(--green)">'+fmtMoney(dayTotal)+'</strong>':''}
+            </div>
+          </div>
+          ${!isToday?`<button class="btn btn-ghost btn-sm btn-icon" onclick="regData='${nextDay(regData)}';regAtualizarTabela();document.getElementById('reg-date').value=regData;" title="Próximo dia">▶</button>`:''}
+        </div>
       </div>
       <div class="page-header-right">
         <div class="search-bar">
           <span>🔍</span>
-          <input type="text" placeholder="Filtrar registros..." oninput="filterTable(this,'reg-table')" />
+          <input type="text" placeholder="Filtrar..." oninput="filterTable(this,'reg-table')" />
         </div>
       </div>
     </div>
 
+    <!-- TABELA -->
     <div class="card">
       <div class="table-wrap">
         <table id="reg-table">
           <thead>
-            <tr><th>Data</th><th>Mecânico</th><th>Veículo</th><th>Serviço</th><th>Valor</th><th></th></tr>
+            <tr><th>Mecânico</th><th>Veículo / Cor</th><th>Serviço</th><th>Valor</th><th></th></tr>
           </thead>
-          <tbody>
-            ${todayRegs.length===0
-              ? `<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">📋</div><p>Nenhum serviço hoje</p></div></td></tr>`
-              : todayRegs.map(r=>{
-                  const mec = mecanicos.find(m=>m.id===r.mecanicoId);
-                  const srv = servicos.find(s=>s.id===r.servicoId);
-                  const vei = veiculos.find(v=>v.id===r.veiculoId);
-                  const srvNome = r.nomeAvulso || srv?.name || '?';
-                  return `<tr>
-                    <td><span class="badge badge-blue">${fmtDate(r.date)}</span></td>
-                    <td><strong>${mec?.name||'?'}</strong></td>
-                    <td><span class="badge badge-orange">${vei?vei.marca+' '+vei.modelo:'N/A'}</span></td>
-                    <td>${srvNome}${r.nomeAvulso?' <span class="badge badge-orange" style="font-size:9px;">avulso</span>':''}</td>
-                    <td><strong style="color:var(--green)">${fmtMoney(r.value)}</strong></td>
-                    <td><button class="btn btn-danger btn-sm btn-icon" onclick="deleteRegistro(${r.id})" aria-label="Excluir Registro">🗑</button></td>
-                  </tr>`;
-                }).join('')
-            }
+          <tbody id="reg-tbody">
+            ${regBuildRows(dateRegs, mecanicos, servicos, veiculos)}
           </tbody>
         </table>
       </div>
+      ${daySrvs>0?`
+      <div style="display:flex;justify-content:flex-end;padding:12px 16px 4px;border-top:1px solid var(--border);margin-top:4px;">
+        <div style="font-family:var(--font-head);font-size:16px;font-weight:800;">
+          Total: <span style="color:var(--accent)">${fmtMoney(dayTotal)}</span>
+        </div>
+      </div>`:''}
     </div>
   `;
 }
 
-function salvarRegistro(){
+function regBuildRows(regs, mecanicos, servicos, veiculos){
+  if(!regs.length)
+    return `<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">📋</div><p>Nenhum serviço nesta data</p></div></td></tr>`;
+  return regs.map(r=>{
+    const mec  = mecanicos.find(m=>m.id===r.mecanicoId);
+    const srv  = servicos.find(s=>s.id===r.servicoId);
+    const vei  = veiculos.find(v=>v.id===r.veiculoId);
+    const nome = r.nomeAvulso || srv?.name || '?';
+    const veiCell = vei
+      ? `<span style="display:inline-flex;align-items:center;gap:5px;">
+           <span style="width:10px;height:10px;border-radius:50%;flex-shrink:0;
+             background:${COR_HEX[r.cor]||'#6B7280'};${r.cor==='Branco'?'border:1px solid #555':''}"></span>
+           ${vei.marca} ${vei.modelo}
+         </span>`
+      : `<span class="badge badge-orange">N/A</span>`;
+    return `<tr style="${regEditing===r.id?'background:var(--accent-dim);outline:1.5px solid var(--accent);':''}">
+      <td><strong>${mec?.name||'?'}</strong></td>
+      <td>${veiCell}</td>
+      <td>${nome}${r.nomeAvulso?' <span class="badge badge-orange" style="font-size:9px;">avulso</span>':''}</td>
+      <td><strong style="color:var(--green)">${fmtMoney(r.value)}</strong></td>
+      <td class="tbl-actions">
+        <button class="btn btn-ghost btn-sm" onclick="regEditar(${r.id})" title="Editar">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="regExcluir(${r.id})" title="Excluir">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function regAtualizarTabela(){
+  const mecanicos = DB.get('mecanicos')||[];
+  const servicos  = DB.get('servicos')||[];
+  const veiculos  = DB.get('veiculos')||[];
+  const registros = DB.get('registros')||[];
+  const dateRegs  = registros.filter(r=>r.date===regData).sort((a,b)=>b.id-a.id);
+  const dayTotal  = dateRegs.reduce((s,r)=>s+r.value,0);
+  const isToday   = regData===todayStr();
+  const tbody = document.getElementById('reg-tbody');
+  const title = document.getElementById('reg-tbl-title');
+  const sub   = document.getElementById('reg-tbl-sub');
+  if(tbody) tbody.innerHTML = regBuildRows(dateRegs, mecanicos, servicos, veiculos);
+  if(title) title.textContent = isToday?'Registros de Hoje':'Registros — '+fmtDate(regData);
+  if(sub)   sub.innerHTML = `${dateRegs.length} serviço(s)${dateRegs.length>0?' · <strong style="color:var(--green)">'+fmtMoney(dayTotal)+'</strong>':''}`;
+}
+
+function regUpdateValue(){
+  const sel = document.getElementById('reg-srv');
+  const v   = sel?.options[sel.selectedIndex]?.dataset.value;
+  const el  = document.getElementById('reg-value');
+  if(el && v) el.value = v;
+}
+
+function regSalvar(){
+  const date  = document.getElementById('reg-date')?.value||todayStr();
   const mecId = parseInt(document.getElementById('reg-mec').value);
   const srvId = parseInt(document.getElementById('reg-srv').value);
   const veiId = parseInt(document.getElementById('reg-vei').value);
   const value = parseFloat(document.getElementById('reg-value').value)||0;
+  const cor   = document.getElementById('reg-cor')?.value||'';
   if(!mecId||!srvId||!veiId){ toast('Preencha todos os campos','error'); return; }
-  const reg = { id:nextId('reg'), date:todayStr(), mecanicoId:mecId, servicoId:srvId, veiculoId:veiId, value };
   const registros = DB.get('registros')||[];
-  registros.push(reg);
-  DB.set('registros', registros);
-  SYNC.pushRegistro(reg);
-  toast('Registrado!');
+  if(regEditing){
+    const i = registros.findIndex(x=>x.id===regEditing);
+    if(i>=0){
+      registros[i] = cleanObj({id:registros[i].id, date, mecanicoId:mecId, servicoId:srvId, veiculoId:veiId, cor, value});
+      DB.set('registros', registros);
+      SYNC.pushRegistro(registros[i]);
+      toast('Registro atualizado! ✅');
+    }
+    regEditing = null;
+  } else {
+    const reg = cleanObj({id:nextId('reg'), date, mecanicoId:mecId, servicoId:srvId, veiculoId:veiId, cor, value});
+    registros.push(reg);
+    DB.set('registros', registros);
+    SYNC.pushRegistro(reg);
+    toast('Registrado! ✅');
+  }
+  regData = date;
   renderRegistro();
 }
 
-function salvarAvulso(){
+function regSalvarAvulso(){
+  const date  = document.getElementById('reg-date')?.value||todayStr();
   const mecId = parseInt(document.getElementById('av-mec').value);
   const veiId = parseInt(document.getElementById('av-vei').value);
   const nome  = document.getElementById('av-nome').value.trim();
   const value = parseFloat(document.getElementById('av-valor').value)||0;
+  const cor   = document.getElementById('av-cor')?.value||'';
   if(!mecId||!veiId||!nome){ toast('Preencha todos os campos','error'); return; }
-  const reg = { id:nextId('reg'), date:todayStr(), mecanicoId:mecId, servicoId:null, veiculoId:veiId, nomeAvulso:nome, value };
+  const registros = DB.get('registros')||[];
+  if(regEditing){
+    const i = registros.findIndex(x=>x.id===regEditing);
+    if(i>=0){
+      registros[i] = cleanObj({id:registros[i].id, date, mecanicoId:mecId, servicoId:null, veiculoId:veiId, nomeAvulso:nome, cor, value});
+      DB.set('registros', registros);
+      SYNC.pushRegistro(registros[i]);
+      toast('Registro atualizado! ✅');
+    }
+    regEditing = null;
+  } else {
+    const reg = cleanObj({id:nextId('reg'), date, mecanicoId:mecId, servicoId:null, veiculoId:veiId, nomeAvulso:nome, cor, value});
+    registros.push(reg);
+    DB.set('registros', registros);
+    SYNC.pushRegistro(reg);
+    toast('Avulso registrado! ✅');
+  }
+  regData = date;
+  renderRegistro();
+}
+
+function regEditar(id){
+  const registros = DB.get('registros')||[];
+  const r = registros.find(x=>x.id===id);
+  if(!r) return;
+  regEditing = id;
+  regData    = r.date;
+  const avulso = !!r.nomeAvulso;
+  if(regAvulso!==avulso){ regAvulso=avulso; }
+  renderRegistro();
+  // preenche campos
+  const setV = (id,v)=>{ const el=document.getElementById(id); if(el) el.value=v; };
+  if(avulso){
+    setV('av-mec',   r.mecanicoId);
+    setV('av-vei',   r.veiculoId);
+    setV('av-nome',  r.nomeAvulso||'');
+    setV('av-valor', r.value);
+    if(r.cor) regAtivarCor('av', r.cor);
+  } else {
+    setV('reg-mec',   r.mecanicoId);
+    setV('reg-vei',   r.veiculoId);
+    setV('reg-srv',   r.servicoId);
+    setV('reg-value', r.value);
+    if(r.cor) regAtivarCor('reg', r.cor);
+  }
+  regAtualizarTabela();
+  document.getElementById('reg-form-box')?.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function regAtivarCor(prefixo, cor){
+  const el = document.querySelector(`.cor-dot-pick[data-prefixo="${prefixo}"][title="${cor}"]`);
+  if(el) escolherCor(el, prefixo, cor);
+}
+
+function regCancelarEdicao(){
+  regEditing = null;
+  regData    = todayStr();
+  renderRegistro();
+}
+
+function regExcluir(id){
+  if(!confirm('Excluir este registro?')) return;
+  if(regEditing===id){ regEditing=null; }
+  const registros = (DB.get('registros')||[]).filter(r=>r.id!==id);
+  DB.set('registros', registros);
+  SYNC.deleteRegistro(id);
+  toast('Excluído','info');
+  regAtualizarTabela();
+}
+
+
+function corPickerHTML(prefixo){
+  const cores = [
+    {nome:'Branco',hex:'#FFFFFF'},{nome:'Prata',hex:'#C0C0C0'},{nome:'Cinza',hex:'#808080'},
+    {nome:'Preto',hex:'#1a1a1a'},{nome:'Vermelho',hex:'#DC2626'},{nome:'Azul',hex:'#2563EB'},
+    {nome:'Azul Marinho',hex:'#1E3A8A'},{nome:'Verde',hex:'#16A34A'},{nome:'Amarelo',hex:'#EAB308'},
+    {nome:'Laranja',hex:'#F97316'},{nome:'Roxo',hex:'#7C3AED'},{nome:'Rosa',hex:'#EC4899'},
+    {nome:'Marrom',hex:'#92400E'},{nome:'Bege',hex:'#D4B896'},{nome:'Dourado',hex:'#B45309'},
+    {nome:'Outra',hex:'#6B7280'}
+  ];
+  const dots = cores.map(c=>{
+    const borda = c.nome==='Branco'?'border:1.5px solid #555;':'';
+    return `<div class="cor-dot-pick" onclick="escolherCor(this,'${prefixo}','${c.nome}')" title="${c.nome}"
+      style="display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:5px 3px;border-radius:7px;transition:background .15s;"
+      data-prefixo="${prefixo}">
+      <span style="width:24px;height:24px;border-radius:50%;background:${c.hex};display:block;${borda}box-shadow:0 1px 3px rgba(0,0,0,0.4);transition:box-shadow .15s;"></span>
+      <span style="font-size:8px;color:var(--text2);text-align:center;line-height:1.1;max-width:36px;">${c.nome}</span>
+    </div>`;
+  }).join('');
+  return `
+    <div class="form-group" style="margin:0;grid-column:1/-1;">
+      <label>Cor do Veículo</label>
+      <input type="hidden" id="${prefixo}-cor" value="">
+      <div style="display:grid;grid-template-columns:repeat(8,1fr);gap:3px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);">
+        ${dots}
+      </div>
+      <div id="${prefixo}-cor-label" style="margin-top:6px;font-size:12px;color:var(--text3);">Nenhuma cor selecionada</div>
+    </div>`;
+}
+
+function escolherCor(el, prefixo, nome){
+  document.querySelectorAll(`.cor-dot-pick[data-prefixo="${prefixo}"]`).forEach(o=>{
+    o.style.background='';
+    o.querySelector('span').style.boxShadow='0 1px 3px rgba(0,0,0,0.4)';
+  });
+  el.style.background='var(--accent-dim)';
+  el.querySelector('span').style.boxShadow='0 0 0 2.5px var(--accent)';
+  document.getElementById(prefixo+'-cor').value = nome;
+  const hex = COR_HEX[nome]||'#6B7280';
+  const borda = nome==='Branco'?'border:1px solid #555;':'';
+  document.getElementById(prefixo+'-cor-label').innerHTML =
+    `<span style="display:inline-flex;align-items:center;gap:6px;">
+       <span style="width:11px;height:11px;border-radius:50%;background:${hex};${borda}"></span>
+       <strong style="color:var(--text)">${nome}</strong> selecionada
+     </span>`;
+}
+
+
+// ══════════════════════════════════
+//  REGISTRO RÁPIDO POR MECÂNICO
+// ══════════════════════════════════
+let rapidoMecId = null; // mecânico selecionado na sessão
+
+function renderRapido(){
+  const mecanicos = DB.get('mecanicos')||[];
+  const servicos  = DB.get('servicos')||[];
+  const veiculos  = DB.get('veiculos')||[];
+  const registros = DB.get('registros')||[];
+  const today     = todayStr();
+
+  const avatarColors = ['#f97316','#3b82f6','#22c55e','#a855f7','#ec4899','#14b8a6','#eab308','#ef4444'];
+
+  // Cards de seleção de mecânico
+  const mecCards = mecanicos.map((m,i)=>{
+    const sel = rapidoMecId===m.id;
+    const cor = avatarColors[i%avatarColors.length];
+    const todayTotal = registros
+      .filter(r=>r.date===today && r.mecanicoId===m.id)
+      .reduce((s,r)=>s+r.value,0);
+    return `
+      <div onclick="selecionarMecRapido(${m.id})" style="
+        cursor:pointer; border-radius:var(--radius); padding:16px 14px;
+        border:2px solid ${sel?'var(--accent)':'var(--border)'};
+        background:${sel?'var(--accent-dim)':'var(--surface)'};
+        display:flex; flex-direction:column; align-items:center; gap:8px;
+        transition:all .15s; user-select:none; text-align:center;">
+        <div style="width:48px;height:48px;border-radius:50%;background:${cor}22;
+          border:2px solid ${sel?'var(--accent)':cor+'44'};
+          display:flex;align-items:center;justify-content:center;
+          font-family:var(--font-head);font-size:20px;font-weight:800;color:${cor};">
+          ${m.name[0]}
+        </div>
+        <div style="font-size:13px;font-weight:700;line-height:1.2;">${m.name}</div>
+        ${todayTotal>0?`<div style="font-size:11px;color:var(--green);font-weight:600;">${fmtMoney(todayTotal)}</div>`:'<div style="font-size:11px;color:var(--text3);">Sem registros hoje</div>'}
+      </div>`;
+  }).join('');
+
+  // Serviços do dia do mecânico selecionado
+  const mec = mecanicos.find(m=>m.id===rapidoMecId);
+  const mecRegsHoje = rapidoMecId
+    ? registros.filter(r=>r.date===today && r.mecanicoId===rapidoMecId).reverse()
+    : [];
+  const totalMecHoje = mecRegsHoje.reduce((s,r)=>s+r.value,0);
+
+  const srvOptions = servicos.map(s=>`<option value="${s.id}" data-value="${s.value}">${s.code} — ${s.name} (${fmtMoney(s.value)})</option>`).join('');
+  const veiOptions = veiculos.map(v=>`<option value="${v.id}">${v.marca} ${v.modelo}</option>`).join('');
+
+  const sessionRows = mecRegsHoje.map(r=>{
+    const srv = servicos.find(s=>s.id===r.servicoId);
+    const vei = veiculos.find(v=>v.id===r.veiculoId);
+    const nome = r.nomeAvulso||srv?.name||'?';
+    return `<tr>
+      <td>${vei?vei.marca+' '+vei.modelo:'?'}</td>
+      <td>
+        ${r.cor?`<span style="display:inline-flex;align-items:center;gap:4px;">
+          <span style="width:9px;height:9px;border-radius:50%;background:${COR_HEX[r.cor]||'#6B7280'};${r.cor==='Branco'?'border:1px solid #555':''}"></span>
+          ${r.cor}</span>`:'—'}
+      </td>
+      <td>${nome}${r.nomeAvulso?' <span class="badge badge-orange" style="font-size:9px;">avulso</span>':''}</td>
+      <td><strong style="color:var(--green)">${fmtMoney(r.value)}</strong></td>
+      <td><button class="btn btn-danger btn-sm btn-icon" onclick="deleteRegistroRapido(${r.id})" title="Excluir">🗑</button></td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('page-content').innerHTML = `
+    <!-- Seletor de mecânico -->
+    <div class="card" style="margin-bottom:16px;">
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px;">
+        👷 Selecione o Mecânico
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;">
+        ${mecCards||'<p style="color:var(--text2);font-size:13px;">Nenhum mecânico cadastrado.</p>'}
+      </div>
+    </div>
+
+    ${rapidoMecId ? `
+    <!-- Formulário de adição rápida -->
+    <div class="quick-form" style="margin-bottom:16px;border:1.5px solid var(--accent);">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:36px;height:36px;border-radius:50%;background:${avatarColors[(mecanicos.indexOf(mec))%avatarColors.length]}22;
+            display:flex;align-items:center;justify-content:center;
+            font-family:var(--font-head);font-size:16px;font-weight:800;
+            color:${avatarColors[(mecanicos.indexOf(mec))%avatarColors.length]};">
+            ${mec.name[0]}
+          </div>
+          <div>
+            <div style="font-family:var(--font-head);font-size:16px;font-weight:700;">${mec.name}</div>
+            <div style="font-size:11px;color:var(--text2);">Hoje: <strong style="color:var(--green)">${fmtMoney(totalMecHoje)}</strong> · ${mecRegsHoje.length} serviço(s)</div>
+          </div>
+        </div>
+        <div style="display:flex;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:3px;gap:3px;">
+          <button id="rtab-lista" onclick="setRapidoModo(false)"
+            style="padding:6px 14px;border-radius:6px;border:none;cursor:pointer;font-family:var(--font-body);font-size:12px;font-weight:600;transition:all .15s;
+            background:${!rapidoAvulso?'var(--accent)':'transparent'};color:${!rapidoAvulso?'#fff':'var(--text2)'};">
+            📋 Lista
+          </button>
+          <button id="rtab-avulso" onclick="setRapidoModo(true)"
+            style="padding:6px 14px;border-radius:6px;border:none;cursor:pointer;font-family:var(--font-body);font-size:12px;font-weight:600;transition:all .15s;
+            background:${rapidoAvulso?'var(--accent)':'transparent'};color:${rapidoAvulso?'#fff':'var(--text2)'};">
+            ✏️ Avulso
+          </button>
+        </div>
+      </div>
+
+      <!-- Da Lista -->
+      <div style="display:${!rapidoAvulso?'block':'none'}">
+        <div class="quick-form-grid qfg-vales" style="margin-bottom:10px;">
+          <div class="form-group" style="margin:0">
+            <label>Veículo</label>
+            <select class="form-control" id="rq-vei">
+              <option value="">Selecione...</option>${veiOptions}
+            </select>
+          </div>
+          <div class="form-group" style="margin:0">
+            <label>Serviço</label>
+            <select class="form-control" id="rq-srv" onchange="rqUpdateValue()">
+              <option value="">Selecione...</option>${srvOptions}
+            </select>
+          </div>
+          <div class="form-group" style="margin:0">
+            <label>Valor (R$)</label>
+            <input type="number" class="form-control" id="rq-value" min="0" step="0.01" placeholder="0,00"
+              style="color:var(--green);font-weight:700;">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label>Ação</label>
+            <button class="btn btn-primary" style="width:100%;height:44px;justify-content:center;" onclick="addRapido()">➕ Adicionar</button>
+          </div>
+        </div>
+        ${corPickerHTML('rq')}
+      </div>
+
+      <!-- Avulso -->
+      <div style="display:${rapidoAvulso?'block':'none'}">
+        <div class="quick-form-grid qfg-vales" style="margin-bottom:10px;">
+          <div class="form-group" style="margin:0">
+            <label>Veículo</label>
+            <select class="form-control" id="rqa-vei">
+              <option value="">Selecione...</option>${veiOptions}
+            </select>
+          </div>
+          <div class="form-group" style="margin:0">
+            <label>Descrição</label>
+            <input type="text" class="form-control" id="rqa-nome" placeholder="Ex: Ajuste fino...">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label>Valor (R$)</label>
+            <input type="number" class="form-control" id="rqa-valor" min="0" step="0.01" placeholder="0,00"
+              style="color:var(--green);font-weight:700;">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label>Ação</label>
+            <button class="btn btn-primary" style="width:100%;height:44px;justify-content:center;" onclick="addRapidoAvulso()">➕ Adicionar</button>
+          </div>
+        </div>
+        ${corPickerHTML('rqa')}
+      </div>
+    </div>
+
+    <!-- Registros do mecânico hoje -->
+    ${mecRegsHoje.length>0?`
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+        <div style="font-family:var(--font-head);font-size:14px;font-weight:700;">
+          Registros de hoje — ${mec.name}
+        </div>
+        <div style="font-family:var(--font-head);font-size:16px;font-weight:800;color:var(--accent);">
+          ${fmtMoney(totalMecHoje)}
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Veículo</th><th>Cor</th><th>Serviço</th><th>Valor</th><th></th></tr></thead>
+          <tbody>${sessionRows}</tbody>
+        </table>
+      </div>
+    </div>` : ''}
+    ` : `
+    <div class="empty-state" style="padding:60px 20px;">
+      <div class="empty-icon">👆</div>
+      <p>Selecione um mecânico acima para começar</p>
+    </div>`}
+  `;
+}
+
+let rapidoAvulso = false;
+function setRapidoModo(avulso){ rapidoAvulso=avulso; renderRapido(); }
+function selecionarMecRapido(id){ rapidoMecId = rapidoMecId===id?null:id; renderRapido(); }
+
+function rqUpdateValue(){
+  const sel = document.getElementById('rq-srv');
+  document.getElementById('rq-value').value = sel?.options[sel.selectedIndex]?.dataset.value||'';
+}
+
+function addRapido(){
+  const veiId = parseInt(document.getElementById('rq-vei').value);
+  const srvId = parseInt(document.getElementById('rq-srv').value);
+  const value = parseFloat(document.getElementById('rq-value').value)||0;
+  const cor   = document.getElementById('rq-cor')?.value||'';
+  if(!veiId||!srvId){ toast('Selecione veículo e serviço','error'); return; }
+  const reg = cleanObj({id:nextId('reg'), date:todayStr(), mecanicoId:rapidoMecId, servicoId:srvId, veiculoId:veiId, cor, value});
   const registros = DB.get('registros')||[];
   registros.push(reg);
   DB.set('registros', registros);
   SYNC.pushRegistro(reg);
-  toast('Avulso registrado!');
-  renderRegistro();
+  toast('Adicionado! ✅');
+  renderRapido();
 }
 
-function deleteRegistro(id){
-  if(!confirm('Excluir este registro?')) return;
+function addRapidoAvulso(){
+  const veiId = parseInt(document.getElementById('rqa-vei').value);
+  const nome  = document.getElementById('rqa-nome').value.trim();
+  const value = parseFloat(document.getElementById('rqa-valor').value)||0;
+  const cor   = document.getElementById('rqa-cor')?.value||'';
+  if(!veiId||!nome){ toast('Preencha veículo e descrição','error'); return; }
+  const reg = cleanObj({id:nextId('reg'), date:todayStr(), mecanicoId:rapidoMecId, servicoId:null, veiculoId:veiId, nomeAvulso:nome, cor, value});
+  const registros = DB.get('registros')||[];
+  registros.push(reg);
+  DB.set('registros', registros);
+  SYNC.pushRegistro(reg);
+  toast('Adicionado! ✅');
+  renderRapido();
+}
+
+function deleteRegistroRapido(id){
+  if(!confirm('Excluir?')) return;
   const registros = (DB.get('registros')||[]).filter(r=>r.id!==id);
-  DB.set('registros',registros);
+  DB.set('registros', registros);
   SYNC.deleteRegistro(id);
-  toast('Registro excluído','info');
-  renderRegistro();
+  renderRapido();
 }
 
 // ══════════════════════════════════
@@ -1764,13 +2180,13 @@ function renderVeiculos(){
     <div class="card">
       <div class="table-wrap">
         <table id="vei-table">
-          <thead><tr><th>Código</th><th>Marca / Modelo</th><th>Cor</th><th>Ações</th></tr></thead>
+          <thead><tr><th>Código</th><th>Fabricante</th><th>Nome do Veículo</th><th>Ações</th></tr></thead>
           <tbody>
             ${veiculos.length===0?`<tr><td colspan="4"><div class="empty-state"><div class="empty-icon">🚗</div><p>Nenhum veículo cadastrado</p></div></td></tr>`:
               veiculos.map(v=>`<tr>
                 <td><span class="badge badge-orange">${v.code||'—'}</span></td>
-                <td><strong>${v.marca} ${v.modelo}</strong></td>
-                <td>${corDot(v.cor)}</td>
+                <td>${v.marca}</td>
+                <td><strong>${v.modelo}</strong></td>
                 <td class="tbl-actions">
                   <button class="btn btn-ghost btn-sm" onclick="openVeiculoModal(${v.id})">✏️<span class="btn-txt"> Editar</span></button>
                   <button class="btn btn-danger btn-sm" onclick="deleteVeiculo(${v.id})">🗑</button>
@@ -1790,27 +2206,6 @@ function openVeiculoModal(id){
     const max = veiculos.reduce((m,x)=>{ const n=parseInt(x.code)||0; return n>m?n:m; },0);
     return String(max+1).padStart(3,'0');
   })();
-  const corAtual = v?.cor||'';
-  const cores = [
-    {nome:'Branco',hex:'#FFFFFF'},{nome:'Prata',hex:'#C0C0C0'},{nome:'Cinza',hex:'#808080'},
-    {nome:'Preto',hex:'#1a1a1a'},{nome:'Vermelho',hex:'#DC2626'},{nome:'Azul',hex:'#2563EB'},
-    {nome:'Azul Marinho',hex:'#1E3A8A'},{nome:'Verde',hex:'#16A34A'},{nome:'Amarelo',hex:'#EAB308'},
-    {nome:'Laranja',hex:'#F97316'},{nome:'Roxo',hex:'#7C3AED'},{nome:'Rosa',hex:'#EC4899'},
-    {nome:'Marrom',hex:'#92400E'},{nome:'Bege',hex:'#D4B896'},{nome:'Dourado',hex:'#B45309'},
-    {nome:'Outra',hex:'#6B7280'}
-  ];
-  const colorPicker = cores.map(c=>{
-    const sel = corAtual===c.nome;
-    const borda = c.nome==='Branco'?'border:1.5px solid #555;':'';
-    return `<div class="cor-opt${sel?' cor-sel':''}" onclick="selecionarCor(this,'${c.nome}')" title="${c.nome}"
-      style="display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;padding:6px 4px;border-radius:8px;transition:background 0.15s;${sel?'background:var(--accent-dim);':''}"
-      data-cor="${c.nome}">
-      <span style="width:28px;height:28px;border-radius:50%;background:${c.hex};display:block;${borda}
-        box-shadow:${sel?'0 0 0 2.5px var(--accent)':'0 1px 3px rgba(0,0,0,0.4)'};transition:box-shadow 0.15s;"></span>
-      <span style="font-size:9px;color:var(--text2);text-align:center;line-height:1.2;max-width:44px;">${c.nome}</span>
-    </div>`;
-  }).join('');
-
   openModal(v?'Editar Veículo':'Novo Veículo', `
     <div class="form-group">
       <label>Código <span style="color:var(--green);font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;">✓ gerado automaticamente</span></label>
@@ -1818,57 +2213,33 @@ function openVeiculoModal(id){
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
       <div class="form-group" style="margin:0">
-        <label>Marca</label>
+        <label>Fabricante</label>
         <input class="form-control" id="vei-marca" placeholder="Ex: Toyota" value="${v?.marca||''}">
       </div>
       <div class="form-group" style="margin:0">
-        <label>Modelo</label>
+        <label>Nome do Veículo</label>
         <input class="form-control" id="vei-modelo" placeholder="Ex: Corolla" value="${v?.modelo||''}">
       </div>
     </div>
-    <div class="form-group" style="margin-top:16px;">
-      <label>Cor</label>
-      <input type="hidden" id="vei-cor" value="${corAtual}">
-      <div style="display:grid;grid-template-columns:repeat(8,1fr);gap:4px;padding:12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);">
-        ${colorPicker}
-      </div>
-      <div id="cor-selecionada" style="margin-top:8px;font-size:13px;color:var(--text2);">
-        ${corAtual?`Cor selecionada: <strong style="color:var(--text)">${corAtual}</strong>`:'Nenhuma cor selecionada'}
-      </div>
-    </div>
-    <div class="modal-btns" style="margin-top:8px;">
+    <div class="modal-btns" style="margin-top:16px;">
       <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
       <button class="btn btn-primary" onclick="saveVeiculo(${id||0})">${v?'Salvar':'Cadastrar'}</button>
     </div>
   `);
-}
-
-function selecionarCor(el, nome){
-  document.querySelectorAll('.cor-opt').forEach(o=>{
-    o.classList.remove('cor-sel');
-    o.style.background='';
-    o.querySelector('span').style.boxShadow='0 1px 3px rgba(0,0,0,0.4)';
-  });
-  el.classList.add('cor-sel');
-  el.style.background='var(--accent-dim)';
-  el.querySelector('span').style.boxShadow='0 0 0 2.5px var(--accent)';
-  document.getElementById('vei-cor').value = nome;
-  document.getElementById('cor-selecionada').innerHTML =
-    `Cor selecionada: <strong style="color:var(--text)">${nome}</strong>`;
+  setTimeout(()=>{ document.getElementById('vei-marca')?.focus(); },100);
 }
 
 function saveVeiculo(id){
   const code  = document.getElementById('vei-code').value.trim();
   const marca = document.getElementById('vei-marca').value.trim();
   const modelo= document.getElementById('vei-modelo').value.trim();
-  const cor   = document.getElementById('vei-cor').value.trim();
-  if(!code||!marca||!modelo){ toast('Preencha Código, Marca e Modelo','error'); return; }
+  if(!code||!marca||!modelo){ toast('Preencha todos os campos','error'); return; }
   let veiculos = DB.get('veiculos')||[];
   if(id){
     const i = veiculos.findIndex(x=>x.id===id);
-    veiculos[i] = {...veiculos[i], code, marca, modelo, cor};
+    veiculos[i] = {...veiculos[i], code, marca, modelo};
   } else {
-    veiculos.push({id:nextId('vei'), code, marca, modelo, cor});
+    veiculos.push({id:nextId('vei'), code, marca, modelo});
   }
   DB.set('veiculos', veiculos);
   SYNC.pushCadastros();
