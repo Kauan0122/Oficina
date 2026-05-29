@@ -1,5 +1,5 @@
 // OficinaControl — Service Worker
-const CACHE = 'oficina-v33';
+const CACHE = 'oficina-v34';
 
 // Recursos do app shell para cache offline
 const SHELL = [
