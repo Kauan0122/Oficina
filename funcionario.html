@@ -394,29 +394,36 @@ let currentDate  = todayStr();
 
 // ── Login flow ────────────────────────────────────────────────────
 async function loadMecanicos(){
+  document.getElementById('mec-grid').innerHTML =
+    '<p style="color:var(--text3);font-size:13px;padding:12px 0;">Carregando...</p>';
   try {
     if(!fbAuth.currentUser) await fbAuth.signInAnonymously();
     const snap = await rtdb.ref('mecanicos').once('value');
-    allMecanicos = snap.val() || [];
+    const val = snap.val();
+    // Firebase pode retornar array ou objeto — normaliza para array
+    if(!val) allMecanicos = [];
+    else if(Array.isArray(val)) allMecanicos = val.filter(Boolean);
+    else allMecanicos = Object.values(val);
     renderMecGrid();
   } catch(e){
     console.error('loadMecanicos:', e);
     document.getElementById('mec-grid').innerHTML =
-      '<p style="color:var(--red);font-size:13px;">Erro ao carregar. Verifique sua conexão.</p>';
+      '<p style="color:var(--red);font-size:13px;">Erro ao carregar. Verifique sua conexão.<br><small>' + e.message + '</small></p>';
   }
 }
 
 function renderMecGrid(){
   const grid = document.getElementById('mec-grid');
-  if(!allMecanicos.length){
+  if(!allMecanicos || !allMecanicos.length){
     grid.innerHTML = '<p style="color:var(--text3);font-size:13px;">Nenhum mecânico cadastrado.</p>';
     return;
   }
   grid.innerHTML = allMecanicos.map((m,i)=>{
+    if(!m || !m.id) return '';
     const cor = AVATAR_COLORS[i%AVATAR_COLORS.length];
     return `<div class="mec-card" id="mc-${m.id}" onclick="selectMec(${m.id})">
-      <div class="mec-avatar" style="background:${cor}22;color:${cor};">${m.name[0]}</div>
-      <div class="mec-name">${m.name}</div>
+      <div class="mec-avatar" style="background:${cor}22;color:${cor};">${(m.name||'?')[0]}</div>
+      <div class="mec-name">${m.name||'?'}</div>
     </div>`;
   }).join('');
 }
