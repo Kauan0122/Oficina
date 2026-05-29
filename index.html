@@ -983,17 +983,20 @@ const SYNC = {
   },
 
   async syncOnLoad(){
-    // Aguarda Firebase confirmar auth antes de ligar o listener
-    await new Promise(resolve => {
-      const unsub = fbAuth.onAuthStateChanged(user => { unsub(); resolve(user); });
-    });
+    // Força refresh do token antes de ligar o listener
+    try {
+      if(fbAuth.currentUser) await fbAuth.currentUser.getIdToken(true);
+    } catch(e){ console.warn('token refresh:', e); }
     this.startListening();
     return true;
   },
 
   startListening(){
     setSyncStatus('syncing');
+    // Se não conectar em 8s, mostra erro
+    const errorTimer = setTimeout(() => setSyncStatus('error'), 8000);
     rtdb.ref().on('value', snapshot => {
+      clearTimeout(errorTimer);
       const data = snapshot.val();
       if(data){
         if(data.registros) DB.set('registros', Object.values(data.registros));
