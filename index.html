@@ -1847,6 +1847,57 @@ function regNavDia(delta){
   if(title) title.textContent = isToday?'Registros de Hoje':'Registros — '+fmtDate(regData);
 }
 
+async function openSenhasMecanicos(){
+  const mecanicos = DB.get('mecanicos')||[];
+  if(!mecanicos.length){ toast('Nenhum mecânico cadastrado','error'); return; }
+
+  // Carrega senhas existentes
+  const snap = await rtdb.ref('config/mec_passwords').once('value');
+  const existing = snap.val()||{};
+
+  const rows = mecanicos.map(m=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);">
+      <div style="flex:1;font-weight:600;">${m.name}</div>
+      <input class="form-control" id="mec-pwd-${m.id}" type="password"
+        placeholder="Nova senha" autocomplete="new-password"
+        style="max-width:160px;height:38px;"
+        value="">
+      <span style="font-size:11px;color:${existing[m.id]?'var(--green)':'var(--text3)'};">
+        ${existing[m.id]?'✅ definida':'sem senha'}
+      </span>
+    </div>`).join('');
+
+  openModal('👷 Senhas dos Mecânicos', `
+    <p style="font-size:13px;color:var(--text2);margin-bottom:16px;">
+      Defina a senha de cada mecânico para o app de funcionários.<br>
+      Deixe em branco para não alterar.
+    </p>
+    ${rows}
+    <div class="modal-btns" style="margin-top:16px;">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarSenhasMecanicos()">💾 Salvar</button>
+    </div>
+  `);
+}
+
+async function salvarSenhasMecanicos(){
+  const mecanicos = DB.get('mecanicos')||[];
+  const snap = await rtdb.ref('config/mec_passwords').once('value');
+  const existing = snap.val()||{};
+  let salvos = 0;
+  for(const m of mecanicos){
+    const el = document.getElementById('mec-pwd-'+m.id);
+    const pwd = el?.value?.trim();
+    if(pwd){
+      existing[m.id] = await sha256(pwd);
+      salvos++;
+    }
+  }
+  await rtdb.ref('config/mec_passwords').set(existing);
+  closeModal();
+  toast(salvos>0?`${salvos} senha(s) salva(s)! ✅`:'Nenhuma senha alterada','info');
+}
+
 function regExcluir(id){
   if(!confirm('Excluir este registro?')) return;
   if(regEditing===id){ regEditing=null; }
@@ -2895,7 +2946,10 @@ function renderBackup(){
           <div style="font-family:var(--font-head);font-size:16px;font-weight:700;">Credenciais de Acesso</div>
           <div style="font-size:12px;color:var(--text2);margin-top:2px;">Usuário e senha armazenados com segurança no Firebase</div>
         </div>
-        <button class="btn btn-ghost" onclick="openAlterarSenha()">✏️ Alterar</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-ghost" onclick="openAlterarSenha()">✏️ Alterar senha admin</button>
+          <button class="btn btn-ghost" onclick="openSenhasMecanicos()">👷 Senhas mecânicos</button>
+        </div>
       </div>
     </div>
 
