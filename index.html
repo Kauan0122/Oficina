@@ -1370,8 +1370,6 @@ function renderRegistro(){
   const daySrvs  = dateRegs.length;
 
   // Navegação de data: dia anterior e próximo
-  const prevDay = d => { const dt=new Date(d+'T12:00:00'); dt.setDate(dt.getDate()-1); return dt.toISOString().split('T')[0]; };
-  const nextDay = d => { const dt=new Date(d+'T12:00:00'); dt.setDate(dt.getDate()+1); return dt.toISOString().split('T')[0]; };
   const isToday = regData === todayStr();
 
   document.getElementById('page-content').innerHTML = `
@@ -1468,7 +1466,7 @@ function renderRegistro(){
     <div class="page-header">
       <div class="page-header-left">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-          <button class="btn btn-ghost btn-sm btn-icon" onclick="regData='${prevDay(regData)}';regAtualizarTabela();document.getElementById('reg-date').value=regData;" title="Dia anterior">◀</button>
+          <button class="btn btn-ghost btn-sm btn-icon" onclick="regNavDia(-1)" title="Dia anterior">◀</button>
           <div>
             <div class="page-header-title" id="reg-tbl-title">
               ${isToday?'Registros de Hoje':'Registros — '+fmtDate(regData)}
@@ -1477,7 +1475,7 @@ function renderRegistro(){
               ${daySrvs} serviço(s)${daySrvs>0?' · <strong style="color:var(--green)">'+fmtMoney(dayTotal)+'</strong>':''}
             </div>
           </div>
-          ${!isToday?`<button class="btn btn-ghost btn-sm btn-icon" onclick="regData='${nextDay(regData)}';regAtualizarTabela();document.getElementById('reg-date').value=regData;" title="Próximo dia">▶</button>`:''}
+          <button class="btn btn-ghost btn-sm btn-icon" onclick="regNavDia(1)" title="Próximo dia">▶</button>
         </div>
       </div>
       <div class="page-header-right">
@@ -1656,6 +1654,19 @@ function regCancelarEdicao(){
   regEditing = null;
   regData    = todayStr();
   renderRegistro();
+}
+
+function regNavDia(delta){
+  const dt = new Date(regData+'T12:00:00');
+  dt.setDate(dt.getDate()+delta);
+  regData = dt.toISOString().split('T')[0];
+  const inp = document.getElementById('reg-date');
+  if(inp) inp.value = regData;
+  regAtualizarTabela();
+  // Atualiza botoes de navegacao
+  const isToday = regData===todayStr();
+  const title = document.getElementById('reg-tbl-title');
+  if(title) title.textContent = isToday?'Registros de Hoje':'Registros — '+fmtDate(regData);
 }
 
 function regExcluir(id){
