@@ -983,58 +983,63 @@ const SYNC = {
   },
 
   async syncOnLoad(){
-    // Força refresh do token antes de ligar o listener
-    try {
-      if(fbAuth.currentUser) await fbAuth.currentUser.getIdToken(true);
-    } catch(e){ console.warn('token refresh:', e); }
-    this.startListening();
+    setSyncStatus('syncing');
+    // Aguarda usuário autenticado uma única vez, depois liga o listener
+    await new Promise(resolve => {
+      const unsub = fbAuth.onAuthStateChanged(user => {
+        if(user){ unsub(); resolve(); }
+      });
+    });
+    const rerender = () => {
+      syncNextIds();
+      const active = document.activeElement;
+      const pageEl = document.getElementById('page-content');
+      const userIsTyping = active && pageEl && pageEl.contains(active) &&
+        ['INPUT','SELECT','TEXTAREA'].includes(active.tagName);
+      if(!userIsTyping){
+        const t = document.getElementById('topbar-title')?.textContent;
+        const m = {'Dashboard':renderDashboard,'Mecânicos':renderMecanicos,
+          'Serviços':renderServicos,'Veículos':renderVeiculos,'Histórico':renderHistorico};
+        if(m[t]) m[t]();
+      }
+    };
+
+    let _connected = 0; // quantos listeners confirmaram ok
+    const onOk = () => { _connected++; if(_connected===1) setSyncStatus('ok'); };
+    const onErr = () => { setSyncStatus('error'); };
+
+    // Escuta cada coleção separadamente (evita precisar de leitura na raiz)
+    rtdb.ref('registros').on('value', s => {
+      const v = s.val();
+      DB.set('registros', v ? Object.values(v) : []);
+      onOk(); rerender();
+    }, onErr);
+
+    rtdb.ref('vales').on('value', s => {
+      const v = s.val();
+      DB.set('vales', v ? Object.values(v) : []);
+      onOk(); rerender();
+    }, onErr);
+
+    rtdb.ref('mecanicos').on('value', s => {
+      if(s.val()) DB.set('mecanicos', s.val());
+      onOk(); rerender();
+    }, onErr);
+
+    rtdb.ref('servicos').on('value', s => {
+      if(s.val()) DB.set('servicos', s.val());
+      onOk(); rerender();
+    }, onErr);
+
+    rtdb.ref('veiculos').on('value', s => {
+      if(s.val()) DB.set('veiculos', s.val());
+      onOk(); rerender();
+    }, onErr);
+
     return true;
   },
 
-  startListening(){
-    setSyncStatus('syncing');
-    let _started = false;
-
-    fbAuth.onAuthStateChanged(user => {
-      if(!user || _started) return;
-      _started = true; // evita registrar múltiplos listeners
-
-      rtdb.ref().on('value', snapshot => {
-        const data = snapshot.val();
-        if(data){
-          if(data.registros) DB.set('registros', Object.values(data.registros));
-          else DB.set('registros', []);
-
-          if(data.vales) DB.set('vales', Object.values(data.vales));
-          else DB.set('vales', []);
-
-          if(data.mecanicos) DB.set('mecanicos', data.mecanicos);
-          if(data.servicos)  DB.set('servicos',  data.servicos);
-          if(data.veiculos)  DB.set('veiculos',  data.veiculos);
-
-          syncNextIds();
-
-          const active = document.activeElement;
-          const pageEl = document.getElementById('page-content');
-          const userIsTyping = active && pageEl && pageEl.contains(active) &&
-            ['INPUT','SELECT','TEXTAREA'].includes(active.tagName);
-
-          if(!userIsTyping){
-            const currentTitle = document.getElementById('topbar-title')?.textContent;
-            const pageMap = {
-              'Dashboard':   renderDashboard,
-              'Mecânicos':   renderMecanicos,
-              'Serviços':    renderServicos,
-              'Veículos':    renderVeiculos,
-              'Histórico':   renderHistorico
-            };
-            if(pageMap[currentTitle]) pageMap[currentTitle]();
-          }
-        }
-        setSyncStatus('ok');
-      }, () => setSyncStatus('error'));
-    });
-  }
+  startListening(){ /* não usado — syncOnLoad cuida de tudo */ }
 };
 
 // Garante que nextId seja sempre maior que qualquer ID ja existente (evita colisoes ao sincronizar)
