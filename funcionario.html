@@ -287,13 +287,11 @@
     <div class="login-hero-icon">🔧</div>
     <div class="login-hero-title">Oficina<span>Control</span></div>
     <div class="login-hero-sub">Portal do Funcionário</div>
-  <div id="install-bar" style="display:none;margin-top:8px;">
-    <button onclick="installPWA()" style="background:var(--accent);color:#fff;border:none;
-      border-radius:10px;padding:10px 20px;font-family:var(--font-head);font-size:13px;
-      font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;">
-      📲 Instalar App
-    </button>
-  </div>
+  <button onclick="showInstallHelp()" style="background:rgba(249,115,22,.15);color:var(--accent);
+    border:1px solid rgba(249,115,22,.3);border-radius:10px;padding:9px 18px;margin-top:8px;
+    font-family:var(--font-head);font-size:13px;font-weight:700;cursor:pointer;">
+    📲 Instalar no celular
+  </button>
   </div>
   <div class="login-card">
     <h2>Olá, quem é você? 👋</h2>
@@ -575,8 +573,8 @@ function renderApp(){
     <div class="date-nav">
       <button class="nav-btn" onclick="navDia(-1)">◀</button>
       <div class="date-info">
-        <div class="date-title">${isToday?'Hoje':'${fmtDia(currentDate)}'}</div>
-        <div class="date-title" style="font-size:15px;">${fmtDia(currentDate)}, ${fmtDate(currentDate)}</div>
+        <div class="date-title">${isToday ? 'Hoje — '+fmtDia(currentDate) : fmtDia(currentDate)}</div>
+        <div style="font-size:14px;color:var(--text2);margin-top:2px;">${fmtDate(currentDate)}</div>
         <div class="date-sub">${dayRegs.length} serviço(s)</div>
       </div>
       <button class="nav-btn" onclick="navDia(1)">▶</button>
