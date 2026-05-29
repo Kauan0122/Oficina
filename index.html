@@ -983,6 +983,10 @@ const SYNC = {
   },
 
   async syncOnLoad(){
+    // Aguarda Firebase confirmar auth antes de ligar o listener
+    await new Promise(resolve => {
+      const unsub = fbAuth.onAuthStateChanged(user => { unsub(); resolve(user); });
+    });
     this.startListening();
     return true;
   },
