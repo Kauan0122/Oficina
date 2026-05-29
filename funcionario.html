@@ -388,21 +388,14 @@ let allMecanicos = [];
 let allServicos  = [];
 let allVeiculos  = [];
 let allRegistros = [];
+let allVales     = [];
 let selectedMecId = null;
 let currentDate  = todayStr();
 
 // ── Login flow ────────────────────────────────────────────────────
 async function loadMecanicos(){
   try {
-    // Garante sessão limpa antes de autenticar
-    if(fbAuth.currentUser) await fbAuth.signOut();
-    await fbAuth.signInAnonymously();
-    // Aguarda auth state confirmado
-    await new Promise(resolve => {
-      const unsub = fbAuth.onAuthStateChanged(user => {
-        if(user){ unsub(); resolve(); }
-      });
-    });
+    if(!fbAuth.currentUser) await fbAuth.signInAnonymously();
     const snap = await rtdb.ref('mecanicos').once('value');
     allMecanicos = snap.val() || [];
     renderMecGrid();
@@ -469,15 +462,18 @@ async function doFuncLogin(){
 
 async function loginSuccess(){
   // Carrega todos os dados necessários
-  const [sSnap, vSnap, rSnap] = await Promise.all([
+  const [sSnap, vSnap, rSnap, valSnap] = await Promise.all([
     rtdb.ref('servicos').once('value'),
     rtdb.ref('veiculos').once('value'),
     rtdb.ref('registros').once('value'),
+    rtdb.ref('vales').once('value'),
   ]);
   allServicos  = sSnap.val() || [];
   allVeiculos  = vSnap.val() || [];
   const rVal   = rSnap.val();
   allRegistros = rVal ? Object.values(rVal) : [];
+  const vVal   = valSnap.val();
+  allVales     = vVal ? Object.values(vVal) : [];
 
   // Atualiza topbar
   const mec = allMecanicos.find(m=>m.id===selectedMecId);
@@ -499,10 +495,16 @@ async function loginSuccess(){
     allRegistros = v ? Object.values(v) : [];
     renderApp();
   });
+  rtdb.ref('vales').on('value', snap=>{
+    const v = snap.val();
+    allVales = v ? Object.values(v) : [];
+    renderApp();
+  });
 }
 
 function doFuncLogout(){
   rtdb.ref('registros').off();
+  rtdb.ref('vales').off();
   selectedMecId = null;
   currentDate   = todayStr();
   document.getElementById('login-pwd').value = '';
@@ -512,8 +514,8 @@ function doFuncLogout(){
   document.getElementById('login-err').style.display  = 'none';
   document.getElementById('app').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
-  // Re-autentica em background para próximo login
-  loadMecanicos();
+  // Recarrega lista de mecânicos
+  renderMecGrid();
 }
 
 // ── App render ────────────────────────────────────────────────────
@@ -538,6 +540,8 @@ function renderApp(){
   weekRegs.forEach(r=>{ if(!byDay[r.date]) byDay[r.date]=0; byDay[r.date]+=r.value; });
   const weekTotal = weekRegs.reduce((s,r)=>s+r.value,0);
   const DIAS = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+  const weekVales = allVales.filter(v=>v.mecanicoId===selectedMecId && v.date>=wb.start && v.date<=wb.end).sort((a,b)=>a.date.localeCompare(b.date));
+  const weekValesTotal = weekVales.reduce((s,v)=>s+v.value,0);
 
   const srvCards = dayRegs.length ? dayRegs.map(r=>{
     const srv = allServicos.find?.(s=>s.id===r.servicoId) ||
@@ -596,16 +600,40 @@ function renderApp(){
     <div class="srv-list">${srvCards}</div>
 
     <!-- Resumo da semana -->
-    ${weekTotal>0?`
+    ${(weekTotal>0||weekValesTotal>0)?`
     <div class="week-box">
       <div class="week-box-title">📅 Semana (${fmtDate(wb.start)} – ${fmtDate(wb.end)})</div>
       ${weekDayRows}
       <div class="week-total-row">
-        <span>Total da semana</span>
-        <span style="color:var(--accent)">${fmtMoney(weekTotal)}</span>
+        <span>Produção</span>
+        <span style="color:var(--green)">${fmtMoney(weekTotal)}</span>
+      </div>
+      ${weekValesTotal>0?`
+      <div class="week-total-row" style="font-size:13px;font-family:var(--font-body);">
+        <span style="color:var(--text2)">Vales</span>
+        <span style="color:var(--red)">− ${fmtMoney(weekValesTotal)}</span>
+      </div>
+      <div class="week-total-row">
+        <span>Líquido</span>
+        <span style="color:var(--accent)">${fmtMoney(weekTotal-weekValesTotal)}</span>
+      </div>`:''}
+    </div>
+    ${weekVales.length>0?`
+    <div class="week-box" style="border-color:rgba(239,68,68,.3);margin-top:10px;">
+      <div class="week-box-title" style="color:var(--red)">🧾 Vales da Semana</div>
+      ${weekVales.map(v=>`
+        <div class="week-day-row">
+          <span style="color:var(--text2)">${fmtDate(v.date)} · ${v.desc||'Vale'}</span>
+          <span style="color:var(--red);font-weight:700">− ${fmtMoney(v.value)}</span>
+        </div>`).join('')}
+      <div class="week-total-row">
+        <span>Total de vales</span>
+        <span style="color:var(--red)">${fmtMoney(weekValesTotal)}</span>
       </div>
     </div>`:''}
+    `:''}
   `;
+}
 }
 
 // ── Enter key ──────────────────────────────────────────────────────
