@@ -1767,7 +1767,8 @@ function regSalvar(){
     }
     regEditing = null;
   } else {
-    const reg = cleanObj({id:nextId('reg'), date, mecanicoId:mecId, servicoId:srvId, veiculoId:veiId, cor, value});
+    const hora = new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    const reg = cleanObj({id:nextId('reg'), date, hora, mecanicoId:mecId, servicoId:srvId, veiculoId:veiId, cor, value});
     registros.push(reg);
     DB.set('registros', registros);
     SYNC.pushRegistro(reg);
@@ -1796,7 +1797,8 @@ function regSalvarAvulso(){
     }
     regEditing = null;
   } else {
-    const reg = cleanObj({id:nextId('reg'), date, mecanicoId:mecId, servicoId:null, veiculoId:veiId, nomeAvulso:nome, cor, value});
+    const hora = new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    const reg = cleanObj({id:nextId('reg'), date, hora, mecanicoId:mecId, servicoId:null, veiculoId:veiId, nomeAvulso:nome, cor, value});
     registros.push(reg);
     DB.set('registros', registros);
     SYNC.pushRegistro(reg);
@@ -2173,7 +2175,8 @@ function addRapido(){
   const value = parseFloat(document.getElementById('rq-value').value)||0;
   const cor   = document.getElementById('rq-cor')?.value||'';
   if(!veiId||!srvId){ toast('Selecione veículo e serviço','error'); return; }
-  const reg = cleanObj({id:nextId('reg'), date:todayStr(), mecanicoId:rapidoMecId, servicoId:srvId, veiculoId:veiId, cor, value});
+  const horaReg = new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  const reg = cleanObj({id:nextId('reg'), date:todayStr(), hora:horaReg, mecanicoId:rapidoMecId, servicoId:srvId, veiculoId:veiId, cor, value});
   const registros = DB.get('registros')||[];
   registros.push(reg);
   DB.set('registros', registros);
@@ -2188,7 +2191,8 @@ function addRapidoAvulso(){
   const value = parseFloat(document.getElementById('rqa-valor').value)||0;
   const cor   = document.getElementById('rqa-cor')?.value||'';
   if(!veiId||!nome){ toast('Preencha veículo e descrição','error'); return; }
-  const reg = cleanObj({id:nextId('reg'), date:todayStr(), mecanicoId:rapidoMecId, servicoId:null, veiculoId:veiId, nomeAvulso:nome, cor, value});
+  const horaRegA = new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  const reg = cleanObj({id:nextId('reg'), date:todayStr(), hora:horaRegA, mecanicoId:rapidoMecId, servicoId:null, veiculoId:veiId, nomeAvulso:nome, cor, value});
   const registros = DB.get('registros')||[];
   registros.push(reg);
   DB.set('registros', registros);
@@ -2737,6 +2741,7 @@ function renderHistorico(){
           <td>${corDot}</td>
           <td>${nome}${r.nomeAvulso?' <span class="badge badge-orange" style="font-size:9px;">avulso</span>':''}</td>
           <td style="color:var(--green);font-weight:600;white-space:nowrap;">${fmtMoney(r.value)}</td>
+          ${r.hora?`<td style="color:var(--text3);font-size:12px;">${r.hora}</td>`:'<td>—</td>'}
         </tr>`;
       }).join('');
 
@@ -2752,7 +2757,7 @@ function renderHistorico(){
           </div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Mecânico</th><th>Veículo</th><th>Serviço</th><th>Valor</th></tr></thead>
+              <thead><tr><th>Mecânico</th><th>Veículo</th><th>Serviço</th><th>Valor</th><th>Hora</th></tr></thead>
               <tbody>${rows}</tbody>
             </table>
           </div>
