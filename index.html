@@ -1760,7 +1760,7 @@ function regSalvar(){
   if(regEditing){
     const i = registros.findIndex(x=>x.id===regEditing);
     if(i>=0){
-      registros[i] = cleanObj({id:registros[i].id, date, mecanicoId:mecId, servicoId:srvId, veiculoId:veiId, cor, value});
+      registros[i] = cleanObj({id:registros[i].id, date, hora:registros[i].hora||'', mecanicoId:mecId, servicoId:srvId, veiculoId:veiId, cor, value});
       DB.set('registros', registros);
       SYNC.pushRegistro(registros[i]);
       toast('Registro atualizado! ✅');
@@ -1790,7 +1790,7 @@ function regSalvarAvulso(){
   if(regEditing){
     const i = registros.findIndex(x=>x.id===regEditing);
     if(i>=0){
-      registros[i] = cleanObj({id:registros[i].id, date, mecanicoId:mecId, servicoId:null, veiculoId:veiId, nomeAvulso:nome, cor, value});
+      registros[i] = cleanObj({id:registros[i].id, date, hora:registros[i].hora||'', mecanicoId:mecId, servicoId:null, veiculoId:veiId, nomeAvulso:nome, cor, value});
       DB.set('registros', registros);
       SYNC.pushRegistro(registros[i]);
       toast('Registro atualizado! ✅');
