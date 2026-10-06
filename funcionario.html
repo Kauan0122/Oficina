@@ -712,21 +712,30 @@ function atualizarDots(){
 }
 
 async function verificarPin(){
-  // Carrega mecânicos do Firebase
   try {
-    await db.ref('mecanicos').once('value').then(snap=>{
-      const mecs = snap.val();
-      if(!mecs) { erroPin(); return; }
-      // mecs pode ser array ou objeto
-      const lista = Array.isArray(mecs) ? mecs : Object.values(mecs);
-      const mec = lista.find(m=>m && String(m.pin)===pin);
-      if(!mec){ erroPin(); return; }
-      mecAtual = mec;
-      document.getElementById('pin-error').style.display='none';
-      verificarHorario();
-    });
+    // Busca mecânicos E horário ao mesmo tempo, sempre do Firebase
+    const [snapMec, snapHor] = await Promise.all([
+      db.ref('mecanicos').once('value'),
+      db.ref('config/horario').once('value')
+    ]);
+
+    // Atualiza horário com dado fresco
+    const h = snapHor.val();
+    if(h && h.inicio && h.fim) cfgHorario = h;
+
+    // Valida PIN
+    const mecs = snapMec.val();
+    if(!mecs){ erroPin(); return; }
+    const lista = Array.isArray(mecs) ? mecs : Object.values(mecs);
+    const mec = lista.find(m=>m && String(m.pin)===pin);
+    if(!mec){ erroPin(); return; }
+
+    mecAtual = mec;
+    document.getElementById('pin-error').style.display='none';
+    verificarHorario();
+
   } catch(e){
-    // Fallback: tenta localStorage
+    // Fallback offline
     const local = JSON.parse(localStorage.getItem('oc_mecanicos')||'[]');
     const mec = local.find(m=>String(m.pin)===pin);
     if(!mec){ erroPin(); return; }
@@ -762,13 +771,17 @@ setInterval(async()=>{
 
 function dentroDoHorario(){
   const now = new Date();
-  if(now.getDay()===0) return false; // domingo bloqueado
-  const toMin = s => { const [h,m]=(s||'00:00').split(':'); return +h*60+ +m; };
-  const atual = now.getHours()*60+now.getMinutes();
+  if(now.getDay()===0) return false; // domingo sempre bloqueado
+  const toMin = s => {
+    const parts = (s||'00:00').split(':');
+    return parseInt(parts[0]||0)*60 + parseInt(parts[1]||0);
+  };
+  const atual  = now.getHours()*60 + now.getMinutes();
   const inicio = toMin(cfgHorario.inicio);
   const fim    = toMin(cfgHorario.fim);
-  // Se fim <= inicio (ex: 00:00), considera dia todo liberado
-  if(fim <= inicio) return true;
+  // Horário inválido ou não configurado — bloqueia
+  if(!inicio && !fim) return false;
+  if(fim <= 0) return false;
   return atual >= inicio && atual < fim;
 }
 
@@ -808,6 +821,9 @@ function voltarLogin(){
 
 // ── APP ──
 function abrirApp(){
+  // Salva sessão para persistir ao fechar o app
+  localStorage.setItem('oc_func_sessao', JSON.stringify({ mec: mecAtual, ts: Date.now() }));
+
   mostrar('tela-app');
 
   // Avatar e nome
@@ -836,6 +852,7 @@ function sair(){
   pin = '';
   atualizarDots();
   mecAtual = null;
+  localStorage.removeItem('oc_func_sessao');
   mostrar('tela-login');
 }
 
@@ -1045,6 +1062,34 @@ if('serviceWorker' in navigator){
 // ── INIT ──
 (async()=>{
   await carregarConfig();
+
+  // Restaura sessão se o funcionário já estava logado
+  const sessaoRaw = localStorage.getItem('oc_func_sessao');
+  if(sessaoRaw){
+    try {
+      const sessao = JSON.parse(sessaoRaw);
+      if(sessao?.mec?.id){
+        // Busca horário atualizado do Firebase antes de restaurar
+        try {
+          const snap = await db.ref('config/horario').once('value');
+          const h = snap.val();
+          if(h && h.inicio && h.fim) cfgHorario = h;
+        } catch(e){}
+
+        mecAtual = sessao.mec;
+
+        if(dentroDoHorario()){
+          // Restaura direto na tela do app
+          abrirApp();
+        } else {
+          // Fora do horário — mostra bloqueado mas mantém sessão
+          mostrarBloqueado();
+        }
+      }
+    } catch(e){
+      localStorage.removeItem('oc_func_sessao');
+    }
+  }
 })();
 </script>
 </body>
