@@ -2028,9 +2028,8 @@ function renderRapido(){
   const mecCards = mecanicos.map((m,i)=>{
     const sel = rapidoMecId===m.id;
     const cor = avatarColors[i%avatarColors.length];
-    const todayTotal = registros
-      .filter(r=>r.date===today && r.mecanicoId===m.id)
-      .reduce((s,r)=>s+r.value,0);
+    const todayCount = registros
+      .filter(r=>r.date===today && r.mecanicoId===m.id).length;
     return `
       <div onclick="selecionarMecRapido(${m.id})" style="
         cursor:pointer; border-radius:var(--radius); padding:16px 14px;
@@ -2045,7 +2044,7 @@ function renderRapido(){
           ${m.name[0]}
         </div>
         <div style="font-size:13px;font-weight:700;line-height:1.2;">${m.name}</div>
-        ${todayTotal>0?`<div style="font-size:11px;color:var(--green);font-weight:600;">${fmtMoney(todayTotal)}</div>`:'<div style="font-size:11px;color:var(--text3);">Sem registros hoje</div>'}
+        ${todayCount>0?`<div style="font-size:11px;color:var(--accent);font-weight:600;">${todayCount} serviço(s)</div>`:'<div style="font-size:11px;color:var(--text3);">Sem registros hoje</div>'}
       </div>`;
   }).join('');
 
@@ -2116,7 +2115,7 @@ function renderRapido(){
           </div>
           <div>
             <div style="font-family:var(--font-head);font-size:16px;font-weight:700;">${mec.name}</div>
-            <div style="font-size:11px;color:var(--text2);">Hoje: <strong style="color:var(--green)">${fmtMoney(totalMecHoje)}</strong> · ${mecRegsHoje.length} serviço(s)</div>
+            <div style="font-size:11px;color:var(--text2);">Hoje: <strong style="color:var(--accent)">${mecRegsHoje.length} serviço(s)</strong></div>
           </div>
         </div>
         <div style="display:flex;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:3px;gap:3px;">
@@ -2196,7 +2195,7 @@ function renderRapido(){
           Registros de hoje — ${mec.name}
         </div>
         <div style="font-family:var(--font-head);font-size:16px;font-weight:800;color:var(--accent);">
-          ${fmtMoney(totalMecHoje)}
+          ${mecRegsHoje.length} serviço(s)
         </div>
       </div>
       <div class="table-wrap">
