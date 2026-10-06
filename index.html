@@ -1001,8 +1001,17 @@ const SYNC = {
         ['INPUT','SELECT','TEXTAREA'].includes(active.tagName);
       if(!userIsTyping){
         const t = document.getElementById('topbar-title')?.textContent;
-        const m = {'Dashboard':renderDashboard,'Mecânicos':renderMecanicos,
-          'Serviços':renderServicos,'Veículos':renderVeiculos,'Histórico':renderHistorico};
+        const m = {
+          'Dashboard':          renderDashboard,
+          'Mecânicos':          renderMecanicos,
+          'Serviços':           renderServicos,
+          'Veículos':           renderVeiculos,
+          'Histórico':          renderHistorico,
+          'Vales':              renderVales,
+          'Fechamento Semanal': renderFechamento,
+          'Registrar Serviço':  regAtualizarTabela,
+          '⚡ Registro Rápido': renderRapido
+        };
         if(m[t]) m[t]();
       }
     };
