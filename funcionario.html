@@ -2,692 +2,828 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<meta name="theme-color" content="#1a1f2e">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#f97316">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Meus Serviços">
+<meta name="apple-mobile-web-app-title" content="Oficina — Funcionário">
 <title>OficinaControl — Funcionário</title>
-<link rel="manifest" href="manifest-func.json">
-<link rel="apple-touch-icon" href="icon.svg">
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 <style>
-  :root {
-    --bg:      #0d0f14;
-    --surface: #161a24;
-    --surface2:#1e2330;
-    --border:  #2a3040;
-    --text:    #f0f2f8;
-    --text2:   #8892a4;
-    --text3:   #4a5568;
-    --accent:  #f97316;
-    --green:   #22c55e;
-    --red:     #ef4444;
-    --blue:    #3b82f6;
-    --shadow:  0 4px 24px rgba(0,0,0,0.4);
-    --radius:  14px;
-    --font-head: 'Syne', sans-serif;
-    --font-body: 'DM Sans', sans-serif;
-  }
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font-body); }
+:root {
+  --bg:      #0d0f14;
+  --surface: #161920;
+  --surface2:#1e2230;
+  --border:  #2a2f42;
+  --accent:  #f97316;
+  --green:   #22c55e;
+  --red:     #ef4444;
+  --blue:    #3b82f6;
+  --text:    #f0f2f8;
+  --text2:   #8892aa;
+  --text3:   #545e78;
+  --fhead:   'Syne', sans-serif;
+  --fbody:   'DM Sans', sans-serif;
+  --r:       14px;
+  --rs:      10px;
+}
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html, body { height:100%; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--fbody);
+  min-height: 100vh;
+  min-height: 100dvh;
+}
 
-  /* ── LOGIN ── */
-  #login-screen {
-    min-height: 100dvh;
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .login-hero {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    padding: 48px 24px 24px;
-    background: linear-gradient(160deg, #1a0800 0%, var(--bg) 60%);
-    position: relative;
-    overflow: hidden;
-  }
-  .login-hero::before {
-    content: '';
-    position: absolute;
-    width: 360px; height: 360px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(249,115,22,0.2) 0%, transparent 70%);
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-  }
-  .login-hero-icon {
-    width: 80px; height: 80px;
-    background: var(--accent);
-    border-radius: 22px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 38px;
-    box-shadow: 0 8px 32px rgba(249,115,22,0.4);
-    position: relative; z-index: 1;
-  }
-  .login-hero-title {
-    font-family: var(--font-head);
-    font-size: 28px; font-weight: 800;
-    position: relative; z-index: 1;
-  }
-  .login-hero-title span { color: var(--accent); }
-  .login-hero-sub {
-    font-size: 13px; color: var(--text2);
-    position: relative; z-index: 1;
-  }
-  .login-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 28px 28px 0 0;
-    border-bottom: none;
-    padding: 28px 22px 40px;
-  }
-  .login-card h2 {
-    font-family: var(--font-head);
-    font-size: 20px; font-weight: 700;
-    margin-bottom: 6px;
-  }
-  .login-card p { color: var(--text2); font-size: 13px; margin-bottom: 20px; }
+/* ── TELAS ── */
+.screen {
+  display: none;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+.screen.active { display: flex; flex-direction: column; }
 
-  /* Mechanic cards */
-  .mec-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
-    gap: 10px;
-    margin-bottom: 20px;
-  }
-  .mec-card {
-    display: flex; flex-direction: column; align-items: center;
-    gap: 8px; padding: 14px 8px;
-    background: var(--surface2);
-    border: 2px solid var(--border);
-    border-radius: var(--radius);
-    cursor: pointer;
-    transition: all .15s;
-    user-select: none;
-  }
-  .mec-card:active { transform: scale(.96); }
-  .mec-card.sel {
-    border-color: var(--accent);
-    background: rgba(249,115,22,.1);
-  }
-  .mec-avatar {
-    width: 44px; height: 44px;
-    border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    font-family: var(--font-head); font-size: 18px; font-weight: 800;
-  }
-  .mec-name { font-size: 12px; font-weight: 600; text-align: center; line-height: 1.2; }
+/* ── LOGIN ── */
+#tela-login {
+  align-items: center;
+  justify-content: flex-end;
+  background: linear-gradient(160deg, #1a0a00 0%, var(--bg) 55%);
+}
+.login-hero {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  position: relative;
+}
+.login-hero-glow {
+  position: absolute;
+  width: 300px; height: 300px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(249,115,22,0.22) 0%, transparent 70%);
+  pointer-events: none;
+}
+.login-hero-icon {
+  width: 80px; height: 80px;
+  background: var(--accent);
+  border-radius: 22px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 40px;
+  box-shadow: 0 8px 32px rgba(249,115,22,0.4);
+  position: relative; z-index: 1;
+}
+.login-hero-title {
+  font-family: var(--fhead);
+  font-size: 28px; font-weight: 800;
+  position: relative; z-index: 1;
+}
+.login-hero-title span { color: var(--accent); }
+.login-hero-sub {
+  font-size: 13px; color: var(--text2);
+  position: relative; z-index: 1;
+}
+.login-card {
+  background: var(--surface);
+  border-radius: 28px 28px 0 0;
+  padding: 28px 22px 40px;
+  width: 100%;
+  border-top: 1px solid var(--border);
+}
+.login-card h2 {
+  font-family: var(--fhead);
+  font-size: 20px; font-weight: 800;
+  margin-bottom: 6px;
+}
+.login-card p { color: var(--text2); font-size: 13px; margin-bottom: 20px; }
 
-  /* Form controls */
-  .form-group { margin-bottom: 14px; }
-  label {
-    display: block; font-size: 11px; font-weight: 700;
-    color: var(--text3); text-transform: uppercase;
-    letter-spacing: .8px; margin-bottom: 6px;
-  }
-  .form-control {
-    width: 100%; background: var(--surface2);
-    border: 1px solid var(--border); border-radius: 10px;
-    padding: 0 14px; height: 48px; color: var(--text);
-    font-family: var(--font-body); font-size: 15px;
-    outline: none; transition: border-color .15s;
-  }
-  .form-control:focus { border-color: var(--accent); }
-  .btn-primary {
-    width: 100%; height: 50px;
-    background: var(--accent); color: #fff;
-    border: none; border-radius: 12px;
-    font-family: var(--font-head); font-size: 16px; font-weight: 700;
-    cursor: pointer; transition: opacity .15s;
-    display: flex; align-items: center; justify-content: center; gap: 8px;
-  }
-  .btn-primary:active { opacity: .85; }
-  .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
-  .err { color: var(--red); font-size: 13px; margin-bottom: 12px; display: none; }
+/* PIN pad */
+.pin-display {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.pin-dot {
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: var(--surface2);
+  border: 2px solid var(--border);
+  transition: all 0.15s;
+}
+.pin-dot.filled {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.pin-pad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.pin-key {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--rs);
+  padding: 18px 0;
+  font-family: var(--fhead);
+  font-size: 22px; font-weight: 700;
+  color: var(--text);
+  cursor: pointer;
+  text-align: center;
+  user-select: none;
+  transition: all 0.1s;
+  -webkit-tap-highlight-color: transparent;
+}
+.pin-key:active { background: var(--accent); color: #fff; transform: scale(0.95); }
+.pin-key.del { font-size: 18px; color: var(--text2); }
+.pin-key.empty { background: transparent; border: none; cursor: default; }
+.login-error {
+  color: var(--red);
+  font-size: 13px;
+  text-align: center;
+  margin-bottom: 12px;
+  display: none;
+}
 
-  /* ── APP ── */
-  #app { display: none; min-height: 100dvh; flex-direction: column; }
+/* ── BLOQUEADO ── */
+#tela-bloqueado {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 32px 24px;
+  gap: 12px;
+}
+.bloq-icon { font-size: 64px; }
+.bloq-title {
+  font-family: var(--fhead);
+  font-size: 22px; font-weight: 800;
+}
+.bloq-msg { color: var(--text2); font-size: 14px; max-width: 280px; line-height: 1.5; }
+.bloq-clock {
+  font-family: var(--fhead);
+  font-size: 44px; font-weight: 800;
+  color: var(--accent);
+  letter-spacing: 2px;
+  margin: 8px 0;
+}
+.bloq-date { font-size: 13px; color: var(--text3); }
 
-  /* Topbar */
-  .topbar {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 0 16px; height: 56px;
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    position: sticky; top: 0; z-index: 10;
-  }
-  .topbar-left { display: flex; align-items: center; gap: 10px; }
-  .mec-chip {
-    display: flex; align-items: center; gap: 8px;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 99px; padding: 4px 12px 4px 4px;
-  }
-  .mec-chip-av {
-    width: 28px; height: 28px; border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    font-family: var(--font-head); font-size: 12px; font-weight: 800;
-  }
-  .mec-chip-name { font-size: 13px; font-weight: 600; }
-  .logout-btn {
-    background: none; border: 1px solid var(--border);
-    border-radius: 8px; color: var(--text2);
-    padding: 6px 10px; font-size: 12px; cursor: pointer;
-    font-family: var(--font-body);
-  }
+/* ── APP ── */
+#tela-app {
+  flex-direction: column;
+}
+.app-header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky; top: 0; z-index: 10;
+}
+.app-header-left { display: flex; align-items: center; gap: 10px; }
+.avatar {
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  background: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--fhead);
+  font-size: 16px; font-weight: 800;
+  color: #fff;
+  flex-shrink: 0;
+}
+.mec-nome {
+  font-family: var(--fhead);
+  font-size: 16px; font-weight: 700;
+  line-height: 1.1;
+}
+.app-clock { font-size: 12px; color: var(--text2); }
+.btn-sair {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 12px;
+  color: var(--text2);
+  font-family: var(--fbody);
+  font-size: 12px; font-weight: 600;
+  cursor: pointer;
+}
 
-  /* Content */
-  .content { padding: 16px; flex: 1; }
+.app-body {
+  flex: 1;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  padding-bottom: 32px;
+}
 
-  /* Date nav */
-  .date-nav {
-    display: flex; align-items: center; gap: 8px;
-    margin-bottom: 16px;
-  }
-  .nav-btn {
-    width: 36px; height: 36px; flex-shrink: 0;
-    background: var(--surface2); border: 1px solid var(--border);
-    border-radius: 8px; color: var(--text);
-    font-size: 14px; cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-  }
-  .date-info { flex: 1; }
-  .date-title {
-    font-family: var(--font-head); font-size: 18px; font-weight: 800;
-  }
-  .date-sub { font-size: 12px; color: var(--text2); margin-top: 2px; }
+/* Cards */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 16px;
+}
+.card-label {
+  font-size: 11px; font-weight: 700;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  margin-bottom: 12px;
+}
 
-  /* Summary card */
-  .summary {
-    display: grid; grid-template-columns: 1fr 1fr;
-    gap: 10px; margin-bottom: 16px;
-  }
-  .summary-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 14px;
-  }
-  .summary-label { font-size: 11px; color: var(--text3); font-weight: 700; text-transform: uppercase; letter-spacing: .7px; margin-bottom: 6px; }
-  .summary-val { font-family: var(--font-head); font-size: 22px; font-weight: 800; }
-  .summary-val.green { color: var(--green); }
-  .summary-val.accent { color: var(--accent); }
+/* Ponto */
+.ponto-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.ponto-box {
+  background: var(--surface2);
+  border-radius: var(--rs);
+  padding: 10px 8px;
+  text-align: center;
+}
+.ponto-box-label {
+  font-size: 10px; font-weight: 700;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+.ponto-box-val {
+  font-family: var(--fhead);
+  font-size: 18px; font-weight: 800;
+  line-height: 1;
+}
+.btn-ponto {
+  width: 100%;
+  padding: 16px;
+  border-radius: var(--rs);
+  border: none;
+  cursor: pointer;
+  font-family: var(--fhead);
+  font-size: 16px; font-weight: 800;
+  color: #fff;
+  transition: all 0.15s;
+  letter-spacing: 0.3px;
+}
+.btn-ponto:active { transform: scale(0.98); }
 
-  /* Service rows */
-  .srv-list { display: flex; flex-direction: column; gap: 8px; }
-  .srv-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 14px 16px;
-    display: flex; align-items: center; gap: 12px;
-  }
-  .srv-dot {
-    width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0;
-  }
-  .srv-info { flex: 1; min-width: 0; }
-  .srv-nome { font-size: 14px; font-weight: 600; }
-  .srv-vei { font-size: 12px; color: var(--text2); margin-top: 2px; }
-  .srv-val {
-    font-family: var(--font-head); font-size: 16px;
-    font-weight: 800; color: var(--green); flex-shrink: 0;
-  }
+/* Form serviço */
+.input {
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--rs);
+  padding: 12px 14px;
+  color: var(--text);
+  font-family: var(--fbody);
+  font-size: 15px;
+  outline: none;
+  transition: border-color 0.15s;
+  margin-bottom: 10px;
+  -webkit-appearance: none;
+}
+.input:focus { border-color: var(--accent); }
+.input::placeholder { color: var(--text3); }
+.btn-registrar {
+  width: 100%;
+  padding: 15px;
+  border-radius: var(--rs);
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  font-family: var(--fhead);
+  font-size: 16px; font-weight: 800;
+  cursor: pointer;
+  transition: all 0.15s;
+  letter-spacing: 0.3px;
+}
+.btn-registrar:active { transform: scale(0.98); background: #ea6c0a; }
 
-  /* Week summary */
-  .week-box {
-    background: var(--surface);
-    border: 1px solid rgba(249,115,22,.3);
-    border-radius: var(--radius);
-    padding: 16px; margin-top: 20px;
-  }
-  .week-box-title {
-    font-size: 11px; font-weight: 700; color: var(--text3);
-    text-transform: uppercase; letter-spacing: .8px; margin-bottom: 12px;
-  }
-  .week-day-row {
-    display: flex; justify-content: space-between;
-    padding: 7px 0; border-bottom: 1px solid var(--border);
-    font-size: 13px;
-  }
-  .week-day-row:last-child { border-bottom: none; }
-  .week-total-row {
-    display: flex; justify-content: space-between;
-    padding-top: 10px; margin-top: 4px;
-    font-family: var(--font-head); font-size: 16px; font-weight: 800;
-  }
+/* Lista serviços */
+.srv-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.srv-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--surface2);
+  border-radius: var(--rs);
+  border: 1px solid var(--border);
+}
+.srv-item-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+.srv-item-info { flex: 1; min-width: 0; }
+.srv-item-nome {
+  font-size: 14px; font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.srv-item-vei { font-size: 12px; color: var(--text2); margin-top: 2px; }
+.srv-item-hora { font-size: 12px; color: var(--text3); flex-shrink: 0; }
+.srv-count {
+  display: inline-flex; align-items: center;
+  background: rgba(249,115,22,0.15);
+  color: var(--accent);
+  border-radius: 20px;
+  padding: 2px 10px;
+  font-size: 12px; font-weight: 700;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+.empty-msg {
+  text-align: center;
+  padding: 20px;
+  color: var(--text3);
+  font-size: 13px;
+}
 
-  /* Empty */
-  .empty { text-align: center; padding: 48px 20px; color: var(--text2); }
-  .empty-icon { font-size: 48px; margin-bottom: 12px; }
-  .empty p { font-size: 14px; }
-
-  /* Toast */
-  .toast {
-    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-    background: var(--surface2); border: 1px solid var(--border);
-    border-radius: 10px; padding: 10px 18px;
-    font-size: 13px; font-weight: 600; z-index: 999;
-    opacity: 0; transition: opacity .3s;
-    white-space: nowrap;
-  }
-  .toast.show { opacity: 1; }
+/* Toast */
+.toast-wrap {
+  position: fixed;
+  bottom: 20px; left: 16px; right: 16px;
+  z-index: 999;
+  display: flex; flex-direction: column; gap: 8px;
+  pointer-events: none;
+}
+.toast {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--rs);
+  padding: 12px 16px;
+  display: flex; align-items: center; gap: 8px;
+  font-size: 14px;
+  animation: toastIn 0.3s ease;
+  pointer-events: auto;
+}
+@keyframes toastIn { from{transform:translateY(20px);opacity:0} to{transform:translateY(0);opacity:1} }
+.toast.ok   { border-left: 3px solid var(--green); }
+.toast.err  { border-left: 3px solid var(--red); }
+.toast.info { border-left: 3px solid var(--blue); }
 </style>
 </head>
 <body>
 
-<!-- LOGIN -->
-<div id="login-screen">
+<!-- ── TELA LOGIN ── -->
+<div id="tela-login" class="screen active">
   <div class="login-hero">
+    <div class="login-hero-glow"></div>
     <div class="login-hero-icon">🔧</div>
     <div class="login-hero-title">Oficina<span>Control</span></div>
-    <div class="login-hero-sub">Portal do Funcionário</div>
-  <button onclick="showInstallHelp()" style="background:rgba(249,115,22,.15);color:var(--accent);
-    border:1px solid rgba(249,115,22,.3);border-radius:10px;padding:9px 18px;margin-top:8px;
-    font-family:var(--font-head);font-size:13px;font-weight:700;cursor:pointer;">
-    📲 Instalar no celular
-  </button>
+    <div class="login-hero-sub">Área do Funcionário</div>
   </div>
   <div class="login-card">
-    <h2>Olá, quem é você? 👋</h2>
-    <p>Selecione seu nome e entre com sua senha.</p>
-    <div class="mec-grid" id="mec-grid">
-      <div style="color:var(--text3);font-size:13px;padding:12px 0;">Carregando...</div>
+    <h2>Olá! 👋</h2>
+    <p>Digite seu PIN de 4 dígitos para entrar.</p>
+    <div class="pin-display">
+      <div class="pin-dot" id="pd0"></div>
+      <div class="pin-dot" id="pd1"></div>
+      <div class="pin-dot" id="pd2"></div>
+      <div class="pin-dot" id="pd3"></div>
     </div>
-    <div class="form-group" id="pwd-group" style="display:none;">
-      <label>Senha</label>
-      <input class="form-control" id="login-pwd" type="password"
-        placeholder="••••••••" autocomplete="current-password">
+    <div class="pin-pad">
+      <div class="pin-key" onclick="pinKey('1')">1</div>
+      <div class="pin-key" onclick="pinKey('2')">2</div>
+      <div class="pin-key" onclick="pinKey('3')">3</div>
+      <div class="pin-key" onclick="pinKey('4')">4</div>
+      <div class="pin-key" onclick="pinKey('5')">5</div>
+      <div class="pin-key" onclick="pinKey('6')">6</div>
+      <div class="pin-key" onclick="pinKey('7')">7</div>
+      <div class="pin-key" onclick="pinKey('8')">8</div>
+      <div class="pin-key" onclick="pinKey('9')">9</div>
+      <div class="pin-key empty"></div>
+      <div class="pin-key" onclick="pinKey('0')">0</div>
+      <div class="pin-key del" onclick="pinDel()">⌫</div>
     </div>
-    <div class="err" id="login-err">Senha incorreta.</div>
-    <button class="btn-primary" id="login-btn" onclick="doFuncLogin()" style="display:none;">
-      Entrar →
-    </button>
+    <div class="login-error" id="pin-error">PIN incorreto. Tente novamente.</div>
   </div>
 </div>
 
-<!-- APP -->
-<div id="app" style="display:flex;">
-  <div class="topbar">
-    <div class="topbar-left">
-      <div class="mec-chip">
-        <div class="mec-chip-av" id="chip-av"></div>
-        <span class="mec-chip-name" id="chip-name"></span>
+<!-- ── TELA BLOQUEADA ── -->
+<div id="tela-bloqueado" class="screen">
+  <div class="bloq-icon">🔒</div>
+  <div class="bloq-title">Fora do expediente</div>
+  <div class="bloq-msg" id="bloq-msg">O sistema está disponível apenas durante o horário de trabalho.</div>
+  <div class="bloq-clock" id="bloq-clock">--:--</div>
+  <div class="bloq-date" id="bloq-date"></div>
+  <button class="btn-sair" style="margin-top:20px;" onclick="voltarLogin()">↩ Voltar</button>
+</div>
+
+<!-- ── TELA APP ── -->
+<div id="tela-app" class="screen">
+  <div class="app-header">
+    <div class="app-header-left">
+      <div class="avatar" id="app-avatar">?</div>
+      <div>
+        <div class="mec-nome" id="app-nome">—</div>
+        <div class="app-clock" id="app-clock">--:--:--</div>
       </div>
     </div>
-    <button class="logout-btn" onclick="doFuncLogout()">Sair</button>
+    <button class="btn-sair" onclick="sair()">↩ Sair</button>
   </div>
-  <div class="content" id="content"></div>
+
+  <div class="app-body">
+
+    <!-- PONTO -->
+    <div class="card">
+      <div class="card-label">🕐 Ponto do dia</div>
+      <div class="ponto-grid">
+        <div class="ponto-box">
+          <div class="ponto-box-label">Entrada</div>
+          <div class="ponto-box-val" id="pt-entrada" style="color:var(--green)">--:--</div>
+        </div>
+        <div class="ponto-box">
+          <div class="ponto-box-label">Saída</div>
+          <div class="ponto-box-val" id="pt-saida" style="color:var(--red)">--:--</div>
+        </div>
+        <div class="ponto-box">
+          <div class="ponto-box-label">Trabalhado</div>
+          <div class="ponto-box-val" id="pt-tempo" style="color:var(--blue)">--:--</div>
+        </div>
+      </div>
+      <button class="btn-ponto" id="btn-ponto" onclick="baterPonto()" style="background:var(--green)">
+        ✓ Registrar Entrada
+      </button>
+    </div>
+
+    <!-- REGISTRAR SERVIÇO -->
+    <div class="card">
+      <div class="card-label">🔧 Registrar Serviço</div>
+      <input class="input" id="srv-nome" type="text" placeholder="Ex: Troca de óleo, Freios..." autocomplete="off">
+      <input class="input" id="srv-vei"  type="text" placeholder="Veículo (opcional) — Ex: Fiat Uno Branco" autocomplete="off">
+      <button class="btn-registrar" onclick="registrarServico()">+ Registrar</button>
+    </div>
+
+    <!-- SERVIÇOS DO DIA -->
+    <div class="card">
+      <div class="card-label">
+        📋 Serviços de hoje
+        <span class="srv-count" id="srv-count">0</span>
+      </div>
+      <div class="srv-list" id="srv-list">
+        <div class="empty-msg">Nenhum serviço registrado hoje</div>
+      </div>
+    </div>
+
+  </div>
 </div>
 
-<div class="toast" id="toast"></div>
+<div class="toast-wrap" id="toasts"></div>
 
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script>
+// ── FIREBASE ──
 const firebaseConfig = {
   apiKey: "AIzaSyCu4OI7jZrhdkGVfpzKees94ZWXWsXu6SI",
   authDomain: "oficinacontrol-bfcf4.firebaseapp.com",
+  databaseURL: "https://oficinacontrol-bfcf4-default-rtdb.firebaseio.com/",
   projectId: "oficinacontrol-bfcf4",
   storageBucket: "oficinacontrol-bfcf4.firebasestorage.app",
   messagingSenderId: "10043815825",
-  appId: "1:10043815825:web:38b3d04aed3d3b3b038c30",
-  databaseURL: "https://oficinacontrol-bfcf4-default-rtdb.firebaseio.com/"
+  appId: "1:10043815825:web:38b3d04aed3d3b3b038c30"
 };
 firebase.initializeApp(firebaseConfig);
-const rtdb  = firebase.database();
-const fbAuth = firebase.auth();
+const db = firebase.database();
 
-// ── Utils ─────────────────────────────────────────────────────────
-async function sha256(str){
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
-  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
-}
+// ── STATE ──
+let pin       = '';
+let mecAtual  = null; // { id, name, pin }
+let cfgHorario = { inicio: '07:00', fim: '18:00' };
+let _clockTimer  = null;
+let _pontoTimer  = null;
+let _bloqTimer   = null;
+
+// ── UTILS ──
 function todayStr(){ return new Date().toISOString().split('T')[0]; }
-function fmtDate(d){
-  return new Date(d+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric'});
-}
-function fmtDia(d){
-  const dias = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
-  return dias[new Date(d+'T12:00:00').getDay()];
-}
-function fmtMoney(v){ return 'R$ '+(v||0).toFixed(2).replace('.',','); }
-function getWeekBounds(d){
-  const dt = new Date(d+'T12:00:00');
-  const day = dt.getDay();
-  const diff = (day===0)?-6:(1-day);
-  const mon = new Date(dt); mon.setDate(dt.getDate()+diff);
-  const sat = new Date(mon); sat.setDate(mon.getDate()+5);
-  return {
-    start: mon.toISOString().split('T')[0],
-    end:   sat.toISOString().split('T')[0]
-  };
-}
-function toast(msg){
-  const el = document.getElementById('toast');
-  el.textContent = msg; el.classList.add('show');
-  setTimeout(()=>el.classList.remove('show'), 2500);
+function horaStr(){ return new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
+function horaMin(){ return new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }
+
+function mostrar(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
 }
 
-const COR_HEX = {
-  'Branco':'#FFFFFF','Prata':'#C0C0C0','Cinza':'#808080','Preto':'#1a1a1a',
-  'Vermelho':'#DC2626','Azul':'#2563EB','Azul Marinho':'#1E3A8A','Verde':'#16A34A',
-  'Amarelo':'#EAB308','Laranja':'#F97316','Roxo':'#7C3AED','Rosa':'#EC4899',
-  'Marrom':'#92400E','Bege':'#D4B896','Dourado':'#B45309','Outra':'#6B7280'
-};
-const AVATAR_COLORS = ['#f97316','#3b82f6','#22c55e','#a855f7','#ec4899','#14b8a6','#eab308','#ef4444'];
+function toast(msg, tipo='ok'){
+  const c = document.getElementById('toasts');
+  const t = document.createElement('div');
+  t.className = 'toast '+tipo;
+  const icons = {ok:'✅',err:'❌',info:'ℹ️'};
+  t.innerHTML = `<span>${icons[tipo]||'ℹ️'}</span><span>${msg}</span>`;
+  c.appendChild(t);
+  setTimeout(()=>{ t.style.opacity='0'; t.style.transition='opacity .3s'; setTimeout(()=>t.remove(),300); },3000);
+}
 
-// ── State ─────────────────────────────────────────────────────────
-let allMecanicos = [];
-let allServicos  = [];
-let allVeiculos  = [];
-let allRegistros = [];
-let allVales     = [];
-let selectedMecId = null;
-let currentDate  = todayStr();
-
-// ── Login flow ────────────────────────────────────────────────────
-async function loadMecanicos(){
-  const grid = document.getElementById('mec-grid');
-  grid.innerHTML = '<p style="color:var(--text3);font-size:13px;padding:12px 0;">Carregando...</p>';
-
-  // Timeout de 8s para evitar ficar preso
-  const timeout = setTimeout(() => {
-    grid.innerHTML = '<div style="color:var(--red);font-size:13px;">'
-      + 'Tempo esgotado. Verifique sua conexão.<br>'
-      + '<button onclick="loadMecanicos()" style="margin-top:10px;background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:13px;">Tentar novamente</button>'
-      + '</div>';
-  }, 8000);
-
-  try {
-    // Autentica se necessário
-    if(!fbAuth.currentUser){
-      await fbAuth.signInAnonymously();
-    }
-    // Aguarda auth state para garantir token
-    await new Promise(resolve => {
-      if(fbAuth.currentUser){ resolve(); return; }
-      const unsub = fbAuth.onAuthStateChanged(u => { if(u){ unsub(); resolve(); } });
-    });
-
-    const snap = await rtdb.ref('mecanicos').once('value');
-    clearTimeout(timeout);
-    const val = snap.val();
-    if(!val) allMecanicos = [];
-    else if(Array.isArray(val)) allMecanicos = val.filter(Boolean);
-    else allMecanicos = Object.values(val);
-    renderMecGrid();
-  } catch(e){
-    clearTimeout(timeout);
-    console.error('loadMecanicos:', e);
-    grid.innerHTML = '<div style="color:var(--red);font-size:13px;">'
-      + 'Erro: ' + (e.message||'desconhecido') + '<br>'
-      + '<button onclick="loadMecanicos()" style="margin-top:10px;background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:13px;">Tentar novamente</button>'
-      + '</div>';
+// ── PIN ──
+function pinKey(d){
+  if(pin.length>=4) return;
+  pin += d;
+  atualizarDots();
+  if(pin.length===4) setTimeout(verificarPin, 120);
+}
+function pinDel(){
+  pin = pin.slice(0,-1);
+  atualizarDots();
+  document.getElementById('pin-error').style.display='none';
+}
+function atualizarDots(){
+  for(let i=0;i<4;i++){
+    document.getElementById('pd'+i).classList.toggle('filled', i<pin.length);
   }
 }
 
-function renderMecGrid(){
-  const grid = document.getElementById('mec-grid');
-  if(!allMecanicos || !allMecanicos.length){
-    grid.innerHTML = '<p style="color:var(--text3);font-size:13px;">Nenhum mecânico cadastrado.</p>';
+async function verificarPin(){
+  // Carrega mecânicos do Firebase
+  try {
+    await db.ref('mecanicos').once('value').then(snap=>{
+      const mecs = snap.val();
+      if(!mecs) { erroPin(); return; }
+      // mecs pode ser array ou objeto
+      const lista = Array.isArray(mecs) ? mecs : Object.values(mecs);
+      const mec = lista.find(m=>m && String(m.pin)===pin);
+      if(!mec){ erroPin(); return; }
+      mecAtual = mec;
+      document.getElementById('pin-error').style.display='none';
+      verificarHorario();
+    });
+  } catch(e){
+    // Fallback: tenta localStorage
+    const local = JSON.parse(localStorage.getItem('oc_mecanicos')||'[]');
+    const mec = local.find(m=>String(m.pin)===pin);
+    if(!mec){ erroPin(); return; }
+    mecAtual = mec;
+    verificarHorario();
+  }
+}
+
+function erroPin(){
+  pin = '';
+  atualizarDots();
+  document.getElementById('pin-error').style.display='block';
+  setTimeout(()=>document.getElementById('pin-error').style.display='none',2000);
+}
+
+// ── HORÁRIO ──
+async function carregarConfig(){
+  try {
+    const snap = await db.ref('config/horario').once('value');
+    const h = snap.val();
+    if(h && h.inicio && h.fim) cfgHorario = h;
+  } catch(e){ /* usa default */ }
+}
+
+function dentroDoHorario(){
+  const now = new Date();
+  if(now.getDay()===0) return false; // domingo bloqueado
+  const toMin = s => { const [h,m]=(s||'00:00').split(':'); return +h*60+ +m; };
+  const atual = now.getHours()*60+now.getMinutes();
+  return atual >= toMin(cfgHorario.inicio) && atual < toMin(cfgHorario.fim);
+}
+
+function verificarHorario(){
+  if(dentroDoHorario()){
+    abrirApp();
+  } else {
+    mostrarBloqueado();
+  }
+}
+
+function mostrarBloqueado(){
+  mostrar('tela-bloqueado');
+  const msg = `Registros permitidos apenas das ${cfgHorario.inicio} às ${cfgHorario.fim}. ${new Date().getDay()===0?'Domingos sempre bloqueados.':''}`;
+  document.getElementById('bloq-msg').textContent = msg;
+
+  clearInterval(_bloqTimer);
+  _bloqTimer = setInterval(()=>{
+    const now = new Date();
+    document.getElementById('bloq-clock').textContent =
+      now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    document.getElementById('bloq-date').textContent =
+      now.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'2-digit'});
+    if(dentroDoHorario()){ clearInterval(_bloqTimer); abrirApp(); }
+  }, 1000);
+}
+
+function voltarLogin(){
+  clearInterval(_bloqTimer);
+  pin = '';
+  atualizarDots();
+  mecAtual = null;
+  mostrar('tela-login');
+}
+
+// ── APP ──
+function abrirApp(){
+  mostrar('tela-app');
+
+  // Avatar e nome
+  document.getElementById('app-avatar').textContent = mecAtual.name[0].toUpperCase();
+  document.getElementById('app-nome').textContent   = mecAtual.name;
+
+  // Relógio
+  clearInterval(_clockTimer);
+  _clockTimer = setInterval(()=>{
+    document.getElementById('app-clock').textContent = horaStr();
+    // Checar se saiu do horário
+    if(!dentroDoHorario()){ clearInterval(_clockTimer); clearInterval(_pontoTimer); mostrarBloqueado(); }
+  },1000);
+
+  carregarPonto();
+  carregarServicos();
+
+  // Listener em tempo real para serviços
+  db.ref('registros').orderByChild('mecanicoId').equalTo(mecAtual.id)
+    .on('value', ()=>carregarServicos());
+}
+
+function sair(){
+  clearInterval(_clockTimer);
+  clearInterval(_pontoTimer);
+  db.ref('registros').off();
+  pin = '';
+  atualizarDots();
+  mecAtual = null;
+  mostrar('tela-login');
+}
+
+// ── PONTO ──
+function carregarPonto(){
+  const today = todayStr();
+  db.ref('pontos').orderByChild('mecanicoId').equalTo(mecAtual.id)
+    .once('value', snap=>{
+      const todos = snap.val() ? Object.values(snap.val()) : [];
+      const hoje  = todos.filter(p=>p.date===today);
+      const ent   = hoje.find(p=>p.tipo==='entrada');
+      const sai   = hoje.find(p=>p.tipo==='saida');
+      atualizarPontoUI(ent, sai);
+    });
+}
+
+function atualizarPontoUI(entrada, saida){
+  document.getElementById('pt-entrada').textContent = entrada ? entrada.hora : '--:--';
+  document.getElementById('pt-saida').textContent   = saida   ? saida.hora   : '--:--';
+
+  const btn = document.getElementById('btn-ponto');
+
+  if(saida){
+    btn.textContent = '✓ Ponto encerrado';
+    btn.style.background = 'var(--surface2)';
+    btn.style.color = 'var(--text2)';
+    btn.style.border = '1px solid var(--border)';
+    btn.onclick = null;
+    clearInterval(_pontoTimer);
+    // Calcular tempo total
+    const diff = calcDiff(entrada.hora, saida.hora);
+    document.getElementById('pt-tempo').textContent = diff;
+  } else if(entrada){
+    btn.textContent = '◼ Registrar Saída';
+    btn.style.background = 'var(--red)';
+    btn.style.color = '#fff';
+    btn.style.border = 'none';
+    btn.onclick = baterPonto;
+    // Timer ao vivo
+    clearInterval(_pontoTimer);
+    _pontoTimer = setInterval(()=>{
+      document.getElementById('pt-tempo').textContent = calcDiffAgora(entrada.hora);
+    },1000);
+    calcDiffAgora(entrada.hora);
+  } else {
+    btn.textContent = '✓ Registrar Entrada';
+    btn.style.background = 'var(--green)';
+    btn.style.color = '#fff';
+    btn.style.border = 'none';
+    btn.onclick = baterPonto;
+    clearInterval(_pontoTimer);
+    document.getElementById('pt-tempo').textContent = '--:--';
+  }
+}
+
+function calcDiff(h1, h2){
+  const toSec = h => { const [hh,mm,ss]=(h||'00:00:00').split(':'); return +hh*3600+ +mm*60+(+ss||0); };
+  const diff = Math.max(0, toSec(h2)-toSec(h1));
+  const h=Math.floor(diff/3600), m=Math.floor((diff%3600)/60);
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+}
+function calcDiffAgora(hEntrada){
+  return calcDiff(hEntrada, horaStr());
+}
+
+async function baterPonto(){
+  const today   = todayStr();
+  const snap    = await db.ref('pontos').orderByChild('mecanicoId').equalTo(mecAtual.id).once('value');
+  const todos   = snap.val() ? Object.values(snap.val()) : [];
+  const hoje    = todos.filter(p=>p.date===today);
+  const entrada = hoje.find(p=>p.tipo==='entrada');
+  const saida   = hoje.find(p=>p.tipo==='saida');
+  if(saida) return;
+
+  const tipo = entrada ? 'saida' : 'entrada';
+  const hora = horaStr();
+  const id   = Date.now();
+
+  await db.ref('pontos/'+id).set({ id, mecanicoId:mecAtual.id, mecNome:mecAtual.name, date:today, tipo, hora });
+  toast(tipo==='entrada'?'Entrada registrada! ✅':'Saída registrada! ✅');
+
+  const novaTodos = [...todos, {id, mecanicoId:mecAtual.id, mecNome:mecAtual.name, date:today, tipo, hora}];
+  const novaEnt   = novaTodos.find(p=>p.tipo==='entrada');
+  const novaSai   = novaTodos.find(p=>p.tipo==='saida');
+  atualizarPontoUI(novaEnt, novaSai);
+}
+
+// ── SERVIÇOS ──
+function carregarServicos(){
+  const today = todayStr();
+  db.ref('registros').orderByChild('mecanicoId').equalTo(mecAtual.id)
+    .once('value', snap=>{
+      const todos = snap.val() ? Object.values(snap.val()) : [];
+      const hoje  = todos.filter(r=>r.date===today).reverse();
+      renderServicos(hoje);
+    });
+}
+
+function renderServicos(lista){
+  const count = document.getElementById('srv-count');
+  const list  = document.getElementById('srv-list');
+  count.textContent = lista.length;
+
+  if(!lista.length){
+    list.innerHTML='<div class="empty-msg">Nenhum serviço registrado hoje</div>';
     return;
   }
-  grid.innerHTML = allMecanicos.map((m,i)=>{
-    if(!m || !m.id) return '';
-    const cor = AVATAR_COLORS[i%AVATAR_COLORS.length];
-    return `<div class="mec-card" id="mc-${m.id}" onclick="selectMec(${m.id})">
-      <div class="mec-avatar" style="background:${cor}22;color:${cor};">${(m.name||'?')[0]}</div>
-      <div class="mec-name">${m.name||'?'}</div>
-    </div>`;
-  }).join('');
+
+  list.innerHTML = lista.map(r=>`
+    <div class="srv-item">
+      <div class="srv-item-dot"></div>
+      <div class="srv-item-info">
+        <div class="srv-item-nome">${r.nomeAvulso||'Serviço'}</div>
+        ${r.veiculoDesc?`<div class="srv-item-vei">🚗 ${r.veiculoDesc}</div>`:''}
+      </div>
+      <div class="srv-item-hora">${r.hora||''}</div>
+    </div>
+  `).join('');
 }
 
-function selectMec(id){
-  selectedMecId = id;
-  document.querySelectorAll('.mec-card').forEach(c=>c.classList.remove('sel'));
-  document.getElementById('mc-'+id)?.classList.add('sel');
-  document.getElementById('pwd-group').style.display = 'block';
-  document.getElementById('login-btn').style.display  = 'flex';
-  document.getElementById('login-err').style.display  = 'none';
-  setTimeout(()=>document.getElementById('login-pwd')?.focus(), 100);
-}
+async function registrarServico(){
+  const nome = document.getElementById('srv-nome').value.trim();
+  const vei  = document.getElementById('srv-vei').value.trim();
+  if(!nome){ toast('Digite o nome do serviço','err'); return; }
 
-async function doFuncLogin(){
-  if(!selectedMecId){ toast('Selecione seu nome'); return; }
-  const pwd  = document.getElementById('login-pwd').value;
-  const btn  = document.getElementById('login-btn');
-  const err  = document.getElementById('login-err');
-  if(!pwd){ err.style.display='block'; err.textContent='Digite sua senha.'; return; }
-  btn.textContent = 'Verificando...'; btn.disabled = true;
-  err.style.display = 'none';
+  const hora = horaMin();
+  const id   = Date.now();
+
+  const reg = {
+    id,
+    date:       todayStr(),
+    hora,
+    mecanicoId: mecAtual.id,
+    mecNome:    mecAtual.name,
+    servicoId:  null,
+    nomeAvulso: nome,
+    veiculoId:  null,
+    veiculoDesc:vei||null,
+    cor:        '',
+    value:      0   // valor a ser preenchido pelo admin depois
+  };
+
+  // Remove chaves null para o Firebase
+  const clean = Object.fromEntries(Object.entries(reg).filter(([,v])=>v!==null&&v!==undefined));
+
   try {
-    const hash = await sha256(pwd);
-    const snap = await rtdb.ref('mec_passwords/'+selectedMecId).once('value');
-    const stored = snap.val();
-    if(!stored){
-      err.style.display='block';
-      err.textContent='Senha não definida. Fale com o administrador.';
-    } else if(hash === stored){
-      await loginSuccess();
-    } else {
-      err.style.display='block';
-      err.textContent='Senha incorreta.';
-    }
+    await db.ref('registros/'+id).set(clean);
+    toast('Serviço registrado! ✅');
   } catch(e){
-    err.style.display='block';
-    err.textContent='Erro de conexão.';
-  } finally {
-    btn.textContent='Entrar →'; btn.disabled=false;
+    toast('Erro ao salvar. Verifique a conexão.','err');
+    return;
   }
+
+  document.getElementById('srv-nome').value='';
+  document.getElementById('srv-vei').value='';
+  carregarServicos();
 }
 
-async function loginSuccess(){
-  // Carrega todos os dados necessários
-  const [sSnap, vSnap, rSnap, valSnap] = await Promise.all([
-    rtdb.ref('servicos').once('value'),
-    rtdb.ref('veiculos').once('value'),
-    rtdb.ref('registros').once('value'),
-    rtdb.ref('vales').once('value'),
-  ]);
-  allServicos  = sSnap.val() || [];
-  allVeiculos  = vSnap.val() || [];
-  const rVal   = rSnap.val();
-  allRegistros = rVal ? Object.values(rVal) : [];
-  const vVal   = valSnap.val();
-  allVales     = vVal ? Object.values(vVal) : [];
-
-  // Atualiza topbar
-  const mec = allMecanicos.find(m=>m.id===selectedMecId);
-  const idx = allMecanicos.indexOf(mec);
-  const cor = AVATAR_COLORS[idx%AVATAR_COLORS.length];
-  const chipAv = document.getElementById('chip-av');
-  chipAv.textContent = mec.name[0];
-  chipAv.style.background = cor+'22';
-  chipAv.style.color = cor;
-  document.getElementById('chip-name').textContent = mec.name;
-
-  document.getElementById('login-screen').style.display = 'none';
-  document.getElementById('app').style.display = 'flex';
-  renderApp();
-
-  // Escuta atualizações em tempo real
-  rtdb.ref('registros').on('value', snap=>{
-    const v = snap.val();
-    allRegistros = v ? Object.values(v) : [];
-    renderApp();
-  });
-  rtdb.ref('vales').on('value', snap=>{
-    const v = snap.val();
-    allVales = v ? Object.values(v) : [];
-    renderApp();
-  });
-}
-
-function doFuncLogout(){
-  rtdb.ref('registros').off();
-  rtdb.ref('vales').off();
-  selectedMecId = null;
-  currentDate   = todayStr();
-  document.getElementById('login-pwd').value = '';
-  document.querySelectorAll('.mec-card').forEach(c=>c.classList.remove('sel'));
-  document.getElementById('pwd-group').style.display = 'none';
-  document.getElementById('login-btn').style.display  = 'none';
-  document.getElementById('login-err').style.display  = 'none';
-  document.getElementById('app').style.display = 'none';
-  document.getElementById('login-screen').style.display = 'flex';
-  // Recarrega lista de mecânicos
-  renderMecGrid();
-}
-
-// ── App render ────────────────────────────────────────────────────
-function navDia(delta){
-  const dt = new Date(currentDate+'T12:00:00');
-  dt.setDate(dt.getDate()+delta);
-  currentDate = dt.toISOString().split('T')[0];
-  renderApp();
-}
-
-function renderApp(){
-  const dayRegs = allRegistros
-    .filter(r=>r.mecanicoId===selectedMecId && r.date===currentDate)
-    .sort((a,b)=>a.id-b.id);
-  const dayTotal = dayRegs.reduce((s,r)=>s+r.value,0);
-  const isToday  = currentDate===todayStr();
-
-  // Week summary
-  const wb = getWeekBounds(currentDate);
-  const weekRegs = allRegistros.filter(r=>r.mecanicoId===selectedMecId && r.date>=wb.start && r.date<=wb.end);
-  const byDay = {};
-  weekRegs.forEach(r=>{ if(!byDay[r.date]) byDay[r.date]=0; byDay[r.date]+=r.value; });
-  const weekTotal = weekRegs.reduce((s,r)=>s+r.value,0);
-  const DIAS = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
-  const weekVales = allVales.filter(v=>v.mecanicoId===selectedMecId && v.date>=wb.start && v.date<=wb.end).sort((a,b)=>a.date.localeCompare(b.date));
-  const weekValesTotal = weekVales.reduce((s,v)=>s+v.value,0);
-
-  const srvCards = dayRegs.length ? dayRegs.map(r=>{
-    const srv = allServicos.find?.(s=>s.id===r.servicoId) ||
-      (Array.isArray(allServicos) ? allServicos.find(s=>s.id===r.servicoId) : null);
-    const vei = Array.isArray(allVeiculos) ? allVeiculos.find(v=>v.id===r.veiculoId) : null;
-    const nome = r.nomeAvulso || srv?.name || '?';
-    const dotColor = COR_HEX[r.cor] || '#6B7280';
-    const dotBorder = r.cor==='Branco'?'border:1.5px solid #555':'';
-    return `<div class="srv-card">
-      <div class="srv-dot" style="background:${dotColor};${dotBorder}"></div>
-      <div class="srv-info">
-        <div class="srv-nome">${nome}${r.nomeAvulso?' <span style="background:rgba(249,115,22,.15);color:var(--accent);font-size:10px;padding:1px 6px;border-radius:4px;font-weight:600;">avulso</span>':''}</div>
-        <div class="srv-vei">${vei?vei.marca+' '+vei.modelo:'Veículo não encontrado'}</div>
-      </div>
-      <div class="srv-val">${fmtMoney(r.value)}</div>
-    </div>`;
-  }).join('') : `<div class="empty">
-    <div class="empty-icon">📋</div>
-    <p>Nenhum serviço ${isToday?'hoje':'nesta data'}</p>
-  </div>`;
-
-  const weekDayRows = Object.keys(byDay).sort().map(date=>{
-    const dt = new Date(date+'T12:00:00');
-    const dNome = DIAS[dt.getDay()];
-    return `<div class="week-day-row">
-      <span style="color:var(--text2)">${dNome} <span style="font-size:11px;">${fmtDate(date)}</span></span>
-      <span style="font-weight:700;color:var(--green);">${fmtMoney(byDay[date])}</span>
-    </div>`;
-  }).join('');
-
-  document.getElementById('content').innerHTML = `
-    <!-- Navegação de data -->
-    <div class="date-nav">
-      <button class="nav-btn" onclick="navDia(-1)">◀</button>
-      <div class="date-info">
-        <div class="date-title">${isToday ? 'Hoje — '+fmtDia(currentDate) : fmtDia(currentDate)}</div>
-        <div style="font-size:14px;color:var(--text2);margin-top:2px;">${fmtDate(currentDate)}</div>
-        <div class="date-sub">${dayRegs.length} serviço(s)</div>
-      </div>
-      <button class="nav-btn" onclick="navDia(1)">▶</button>
-    </div>
-
-    <!-- Resumo do dia -->
-    <div class="summary">
-      <div class="summary-card">
-        <div class="summary-label">Serviços</div>
-        <div class="summary-val accent">${dayRegs.length}</div>
-      </div>
-      <div class="summary-card">
-        <div class="summary-label">Total do dia</div>
-        <div class="summary-val green">${fmtMoney(dayTotal)}</div>
-      </div>
-    </div>
-
-    <!-- Lista de serviços -->
-    <div class="srv-list">${srvCards}</div>
-
-    <!-- Resumo da semana -->
-    ${(weekTotal>0||weekValesTotal>0)?`
-    <div class="week-box">
-      <div class="week-box-title">📅 Semana (${fmtDate(wb.start)} – ${fmtDate(wb.end)})</div>
-      ${weekDayRows}
-      <div class="week-total-row">
-        <span>Produção</span>
-        <span style="color:var(--green)">${fmtMoney(weekTotal)}</span>
-      </div>
-      ${weekValesTotal>0?`
-      <div class="week-total-row" style="font-size:13px;font-family:var(--font-body);">
-        <span style="color:var(--text2)">Vales</span>
-        <span style="color:var(--red)">− ${fmtMoney(weekValesTotal)}</span>
-      </div>
-      <div class="week-total-row">
-        <span>Líquido</span>
-        <span style="color:var(--accent)">${fmtMoney(weekTotal-weekValesTotal)}</span>
-      </div>`:''}
-    </div>
-    ${weekVales.length>0?`
-    <div class="week-box" style="border-color:rgba(239,68,68,.3);margin-top:10px;">
-      <div class="week-box-title" style="color:var(--red)">🧾 Vales da Semana</div>
-      ${weekVales.map(v=>`
-        <div class="week-day-row">
-          <span style="color:var(--text2)">${fmtDate(v.date)} · ${v.desc||'Vale'}</span>
-          <span style="color:var(--red);font-weight:700">− ${fmtMoney(v.value)}</span>
-        </div>`).join('')}
-      <div class="week-total-row">
-        <span>Total de vales</span>
-        <span style="color:var(--red)">${fmtMoney(weekValesTotal)}</span>
-      </div>
-    </div>`:''}
-    `:''}
-  `;
-}
-
-// ── Enter key ──────────────────────────────────────────────────────
-document.addEventListener('keydown', e=>{
-  if(e.key==='Enter' && document.getElementById('login-screen').style.display!=='none') doFuncLogin();
-});
-
-// ── PWA Install ───────────────────────────────────────────────────
-function showInstallHelp(){
-  var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
-  var steps = isIOS
-    ? '<b>iPhone/iPad:</b><br><br>1. Toque em <b>Compartilhar</b> (icone de seta)<br>2. Role e toque em <b>Adicionar a Tela de Inicio</b><br>3. Toque em <b>Adicionar</b>'
-    : '<b>Android:</b><br><br>1. Toque nos <b>tres pontinhos</b> no canto superior<br>2. Toque em <b>Adicionar a tela inicial</b><br>3. Toque em <b>Instalar</b>';
-  var overlay = document.createElement('div');
-  overlay.id = 'install-overlay';
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9999;display:flex;align-items:flex-end;';
-  overlay.innerHTML = '<div style="background:#1e2330;border-radius:20px 20px 0 0;padding:28px 22px 44px;width:100%;border-top:2px solid #f97316;">'
-    + '<div style="font-family:Syne,sans-serif;font-size:17px;font-weight:800;margin-bottom:16px;color:#f0f2f8;">📲 Instalar App</div>'
-    + '<div style="font-size:14px;color:#8892a4;line-height:1.9;">' + steps + '</div>'
-    + '<button onclick="document.getElementById(\'install-overlay\').remove()" style="margin-top:22px;width:100%;height:48px;background:#f97316;color:#fff;border:none;border-radius:12px;font-family:Syne,sans-serif;font-size:15px;font-weight:700;cursor:pointer;">Entendi!</button>'
-    + '</div>';
-  document.body.appendChild(overlay);
-  overlay.addEventListener('click', function(e){ if(e.target===overlay) overlay.remove(); });
-}
-
-// ── Init ───────────────────────────────────────────────────────────
-loadMecanicos();
+// ── INIT ──
+(async()=>{
+  await carregarConfig();
+  // Relógio na tela de login
+  setInterval(()=>{}, 1000);
+})();
 </script>
 </body>
 </html>
