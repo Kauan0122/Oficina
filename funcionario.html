@@ -454,6 +454,10 @@ body {
         style="flex:1;padding:9px;border-radius:7px;border:none;cursor:pointer;font-family:var(--fbody);font-size:13px;font-weight:600;transition:all .15s;background:transparent;color:var(--text2);">
         📅 Histórico
       </button>
+      <button id="tab-btn-vales" onclick="setTab('vales')"
+        style="flex:1;padding:9px;border-radius:7px;border:none;cursor:pointer;font-family:var(--fbody);font-size:13px;font-weight:600;transition:all .15s;background:transparent;color:var(--text2);">
+        💸 Vales
+      </button>
     </div>
 
     <!-- TAB: REGISTRAR -->
@@ -490,6 +494,13 @@ body {
     <!-- TAB: HISTÓRICO -->
     <div id="tab-historico" style="display:none;">
       <div id="hist-conteudo">
+        <div class="empty-msg" style="padding:40px 0;">Carregando...</div>
+      </div>
+    </div>
+
+    <!-- TAB: VALES -->
+    <div id="tab-vales" style="display:none;">
+      <div id="vales-conteudo">
         <div class="empty-msg" style="padding:40px 0;">Carregando...</div>
       </div>
     </div>
@@ -550,14 +561,122 @@ function getWeekBounds(d){
 
 // ── ABAS ──
 function setTab(tab){
-  const isReg = tab==='registro';
-  document.getElementById('tab-registro').style.display  = isReg ? 'block' : 'none';
-  document.getElementById('tab-historico').style.display = isReg ? 'none'  : 'block';
-  document.getElementById('tab-btn-registro').style.background  = isReg ? 'var(--accent)' : 'transparent';
-  document.getElementById('tab-btn-registro').style.color       = isReg ? '#fff' : 'var(--text2)';
-  document.getElementById('tab-btn-historico').style.background = isReg ? 'transparent' : 'var(--accent)';
-  document.getElementById('tab-btn-historico').style.color      = isReg ? 'var(--text2)' : '#fff';
-  if(!isReg) renderHistoricoFunc();
+  // Esconde todas
+  ['registro','historico','vales'].forEach(t=>{
+    document.getElementById('tab-'+t).style.display = t===tab ? 'block' : 'none';
+    const btn = document.getElementById('tab-btn-'+t);
+    if(btn){
+      btn.style.background = t===tab ? 'var(--accent)' : 'transparent';
+      btn.style.color      = t===tab ? '#fff' : 'var(--text2)';
+    }
+  });
+  if(tab==='historico') renderHistoricoFunc();
+  if(tab==='vales')     renderValesFunc();
+}
+
+// ── VALES DO FUNCIONÁRIO ──
+function renderValesFunc(){
+  const el = document.getElementById('vales-conteudo');
+  if(!el) return;
+  el.innerHTML = '<div class="empty-msg" style="padding:30px 0;">Carregando...</div>';
+
+  const wb = getWeekBounds(todayStr());
+
+  Promise.all([
+    db.ref('vales').orderByChild('mecanicoId').equalTo(mecAtual.id).once('value'),
+    db.ref('parcelas').orderByChild('mecanicoId').equalTo(mecAtual.id).once('value')
+  ]).then(([snapV, snapP])=>{
+    const todosVales    = snapV.val() ? Object.values(snapV.val()) : [];
+    const todasParcelas = snapP.val() ? Object.values(snapP.val()) : [];
+
+    // Semana atual
+    const valesSem    = todosVales.filter(v=>v.date>=wb.start && v.date<=wb.end);
+    const parcelasSem = todasParcelas.filter(p=>p.weekStart===wb.start);
+
+    const totalValesSem    = valesSem.reduce((s,v)=>s+v.value,0);
+    const totalParcelasSem = parcelasSem.reduce((s,p)=>s+p.value,0);
+    const totalDescontSem  = totalValesSem + totalParcelasSem;
+
+    // Histórico de todas as semanas com vales/parcelas
+    const semanas = {};
+    [...todosVales, ...todasParcelas].forEach(item=>{
+      const d   = item.date || item.weekStart;
+      const wb2 = getWeekBounds(d);
+      if(!semanas[wb2.start]) semanas[wb2.start] = { start:wb2.start, end:wb2.end, vales:[], parcelas:[] };
+      if(item.desc && item.weekStart) semanas[wb2.start].parcelas.push(item);
+      else semanas[wb2.start].vales.push(item);
+    });
+    const sortedSem = Object.values(semanas).sort((a,b)=>b.start.localeCompare(a.start));
+
+    el.innerHTML = `
+      <!-- RESUMO DA SEMANA ATUAL -->
+      <div class="card" style="margin-bottom:12px;border:1px solid ${totalDescontSem>0?'rgba(239,68,68,0.3)':'var(--border)'};">
+        <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:800;margin-bottom:12px;">
+          📊 Semana atual (${fmtDate(wb.start)} → ${fmtDate(wb.end)})
+        </div>
+
+        ${totalDescontSem===0 ? `
+          <div style="text-align:center;padding:16px 0;color:var(--text3);font-size:13px;">
+            ✅ Nenhum vale ou parcela esta semana
+          </div>` : `
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            ${valesSem.map(v=>`
+              <div style="display:flex;justify-content:space-between;align-items:center;
+                padding:10px 12px;background:var(--red-dim);border-radius:var(--rs);
+                border:1px solid rgba(239,68,68,0.2);">
+                <div>
+                  <div style="font-size:13px;font-weight:600;">💸 Vale — ${v.desc}</div>
+                  <div style="font-size:11px;color:var(--text2);margin-top:2px;">${fmtDate(v.date)}</div>
+                </div>
+                <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:800;color:var(--red);">
+                  - ${fmtMoney(v.value)}
+                </div>
+              </div>`).join('')}
+            ${parcelasSem.map(p=>`
+              <div style="display:flex;justify-content:space-between;align-items:center;
+                padding:10px 12px;background:var(--blue-dim);border-radius:var(--rs);
+                border:1px solid rgba(59,130,246,0.2);">
+                <div>
+                  <div style="font-size:13px;font-weight:600;">📅 Parcela ${p.parcela}/${p.total} — ${p.desc}</div>
+                  <div style="font-size:11px;color:var(--text2);margin-top:2px;">Desconto semanal</div>
+                </div>
+                <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:800;color:var(--blue);">
+                  - ${fmtMoney(p.value)}
+                </div>
+              </div>`).join('')}
+            <div style="display:flex;justify-content:space-between;align-items:center;
+              padding:10px 12px;background:var(--surface2);border-radius:var(--rs);
+              border-top:2px solid var(--border);margin-top:4px;">
+              <div style="font-size:13px;font-weight:700;">Total descontado esta semana</div>
+              <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:var(--red);">
+                - ${fmtMoney(totalDescontSem)}
+              </div>
+            </div>
+          </div>`}
+      </div>
+
+      <!-- HISTÓRICO DE SEMANAS ANTERIORES -->
+      ${sortedSem.slice(1).length>0 ? `
+      <div style="font-family:'Syne',sans-serif;font-size:13px;font-weight:700;
+        color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;
+        margin-bottom:8px;">Histórico</div>
+      ${sortedSem.slice(1).map(sem=>{
+        const totalSem = sem.vales.reduce((s,v)=>s+v.value,0) +
+                         sem.parcelas.reduce((s,p)=>s+p.value,0);
+        return `
+        <div class="card" style="margin-bottom:8px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div style="font-size:13px;font-weight:700;">${fmtDate(sem.start)} → ${fmtDate(sem.end)}</div>
+            <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:800;color:var(--red);">
+              - ${fmtMoney(totalSem)}
+            </div>
+          </div>
+        </div>`;
+      }).join('')}`:''}
+    `;
+  }).catch(()=>{
+    el.innerHTML='<div class="empty-msg" style="padding:30px 0;">Erro ao carregar vales</div>';
+  });
 }
 
 // ── HISTÓRICO DO FUNCIONÁRIO ──
