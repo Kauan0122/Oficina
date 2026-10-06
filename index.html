@@ -865,6 +865,9 @@
       </div>
       <div class="nav-section">
         <div class="nav-section-label">Dados</div>
+        <div class="nav-item" onclick="navigate('config-func')" role="button" tabindex="0">
+          <span class="nav-icon">👷</span> Config. Funcionários
+        </div>
         <div class="nav-item" onclick="navigate('backup')" role="button" tabindex="0">
           <span class="nav-icon">💾</span> Backup / Restaurar
         </div>
@@ -1189,52 +1192,56 @@ async function doLogin(){
   const hash = await sha256(p);
   const defaultHash = await sha256('1234');
 
+  // ── Tenta validar via Firebase (com timeout de 6s) ──
+  let fbOk = false;
   try {
-    // 1. Autentica anonimamente no Firebase
-    if(!fbAuth.currentUser){
-      await fbAuth.signInAnonymously();
-    }
+    const fbResult = await Promise.race([
+      (async () => {
+        // Autentica anonimamente se necessário
+        if(!fbAuth.currentUser){
+          await fbAuth.signInAnonymously();
+        }
+        const snap = await rtdb.ref('config/credentials').once('value');
+        return snap.val();
+      })(),
+      new Promise((_,rej) => setTimeout(()=>rej(new Error('timeout')), 6000))
+    ]);
 
-    // 2. Lê credenciais do banco
-    const snap = await rtdb.ref('config/credentials').once('value');
-    const creds = snap.val();
-
-    if(!creds){
-      // Primeira vez: grava admin/1234
+    if(!fbResult){
+      // Primeira vez: grava credencial padrão e aceita
       await rtdb.ref('config/credentials').set({ user:'admin', passHash: defaultHash });
       if(u==='admin' && hash===defaultHash){
         localStorage.setItem('oc_cred', JSON.stringify({user:'admin', passHash:defaultHash}));
         loginSuccess(); return;
       }
     } else {
-      if(u===(creds.user||'').toLowerCase() && hash===creds.passHash){
-        localStorage.setItem('oc_cred', JSON.stringify(creds));
+      if(u===(fbResult.user||'').toLowerCase() && hash===fbResult.passHash){
+        localStorage.setItem('oc_cred', JSON.stringify(fbResult));
         loginSuccess(); return;
       }
+      // Firebase ok mas senha errada
+      errEl.style.display='block';
+      errEl.textContent='Usuário ou senha incorretos.';
+      fbOk = true; // não cai no fallback
     }
-
-    // Senha errada — desloga do Firebase
-    await fbAuth.signOut();
-    errEl.style.display='block';
-    errEl.textContent='Usuário ou senha incorretos.';
-
   } catch(e){
-    console.warn('Firebase erro:', e.message);
-    await fbAuth.signOut().catch(()=>{});
-
-    // Fallback offline: usa credenciais salvas localmente
-    const localRaw = localStorage.getItem('oc_cred');
-    const local = localRaw ? JSON.parse(localRaw) : {user:'admin', passHash:defaultHash};
-    if(u===(local.user||'').toLowerCase() && hash===local.passHash){
-      loginSuccess(); return;
-    }
-    errEl.style.display='block';
-    errEl.textContent = navigator.onLine
-      ? 'Erro de conexão com o servidor.'
-      : 'Sem internet. Usando dados locais.';
+    console.warn('Firebase login error:', e.message);
+    fbAuth.signOut().catch(()=>{});
   } finally {
     if(btn){ btn.textContent='Entrar no sistema →'; btn.disabled=false; }
   }
+
+  if(fbOk) return;
+
+  // ── Fallback local (offline ou Firebase indisponível) ──
+  const localRaw = localStorage.getItem('oc_cred');
+  const local = localRaw ? JSON.parse(localRaw) : { user:'admin', passHash: defaultHash };
+  if(u===(local.user||'').toLowerCase() && hash===local.passHash){
+    loginSuccess(); return;
+  }
+
+  errEl.style.display='block';
+  errEl.textContent = 'Usuário ou senha incorretos.';
 }
 
 function loginSuccess(){
@@ -1303,13 +1310,13 @@ function navigate(page){
     dashboard:'Dashboard', registro:'Registrar Serviço', rapido:'⚡ Registro Rápido',
     mecanicos:'Mecânicos', servicos:'Serviços', veiculos:'Veículos',
     vales:'Vales', fechamento:'Fechamento Semanal', historico:'Histórico',
-    backup:'Backup / Restaurar Dados'
+    'config-func':'Config. Funcionários', backup:'Backup / Restaurar Dados'
   };
   document.getElementById('topbar-title').textContent = titles[page]||page;
   const pages = {dashboard:renderDashboard, registro:renderRegistro, rapido:renderRapido,
     mecanicos:renderMecanicos, servicos:renderServicos, veiculos:renderVeiculos,
     vales:renderVales, fechamento:renderFechamento, historico:renderHistorico,
-    backup:renderBackup};
+    'config-func':renderConfigFunc, backup:renderBackup};
   if(pages[page]) pages[page]();
   // Close sidebar on mobile
   if(window.innerWidth<=768) closeSidebar();
@@ -2253,6 +2260,18 @@ function openMecanicoModal(id){
       <label>Nome</label>
       <input class="form-control" id="mec-name" type="text" placeholder="Nome completo" value="${m?.name||''}">
     </div>
+    <div class="form-group">
+      <label>PIN de acesso <span style="color:var(--text3);font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;">4 dígitos — app dos funcionários</span></label>
+      <div style="display:flex;gap:8px;">
+        <input class="form-control" id="mec-pin" type="text" maxlength="4" placeholder="0000"
+          value="${m?.pin||''}"
+          style="font-family:var(--font-head);font-size:22px;font-weight:800;letter-spacing:8px;text-align:center;flex:1;">
+        <button class="btn btn-ghost btn-sm" style="flex-shrink:0;"
+          onclick="document.getElementById('mec-pin').value=String(Math.floor(1000+Math.random()*9000))">
+          🔀
+        </button>
+      </div>
+    </div>
     <div class="modal-btns">
       <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
       <button class="btn btn-primary" onclick="saveMecanico(${id||0})">${m?'Salvar':'Cadastrar'}</button>
@@ -2265,17 +2284,23 @@ function openMecanicoModal(id){
 function saveMecanico(id){
   const code = document.getElementById('mec-code').value.trim();
   const name = document.getElementById('mec-name').value.trim();
+  const pin  = (document.getElementById('mec-pin')?.value||'').trim();
   if(!code||!name){ toast('Preencha código e nome','error'); return; }
+  if(pin && (pin.length!==4||isNaN(pin))){ toast('PIN deve ter 4 dígitos numéricos','error'); return; }
   const mecanicos = DB.get('mecanicos')||[];
+  if(pin){
+    const dup = mecanicos.find(m=>String(m.pin)===pin && m.id!==id);
+    if(dup){ toast('PIN já em uso por '+dup.name,'error'); return; }
+  }
   if(id){
     const i = mecanicos.findIndex(m=>m.id===id);
-    mecanicos[i] = {...mecanicos[i], code, name};
+    if(i>=0) mecanicos[i] = {...mecanicos[i], code, name, pin: pin||mecanicos[i].pin||''};
   } else {
-    mecanicos.push({id:nextId('mec'), code, name});
+    mecanicos.push({id:nextId('mec'), code, name, pin});
   }
   DB.set('mecanicos',mecanicos);
   SYNC.pushCadastros();
-  closeModal(); toast('Mecânico salvo!'); renderMecanicos();
+  closeModal(); toast('Mecânico salvo! ✅'); renderMecanicos();
 }
 
 function deleteMecanico(id){
@@ -3069,6 +3094,76 @@ if('serviceWorker' in navigator){
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js').catch(() => {});
   });
+}
+
+
+// ══════════════════════════════════
+//  CONFIG. FUNCIONÁRIOS
+// ══════════════════════════════════
+function renderConfigFunc(){
+  const mecanicos = DB.get('mecanicos')||[];
+  const pinRows = mecanicos.map(m=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--border);">
+      <div style="flex:1;font-weight:600;">${m.name}</div>
+      <span style="font-family:var(--font-head);font-size:20px;font-weight:800;letter-spacing:6px;
+        color:${m.pin?'var(--accent)':'var(--text3)'};">${m.pin||'—'}</span>
+      <button class="btn btn-ghost btn-sm" onclick="openMecanicoModal(${m.id})">✏️</button>
+    </div>`).join('');
+
+  document.getElementById('page-content').innerHTML = `
+    <div style="max-width:540px;display:flex;flex-direction:column;gap:16px;">
+
+      <div class="card">
+        <div style="font-family:var(--font-head);font-size:16px;font-weight:800;margin-bottom:6px;">⏰ Horário de funcionamento</div>
+        <p style="color:var(--text2);font-size:13px;margin-bottom:16px;">
+          Fora deste horário, o app dos funcionários fica bloqueado. Domingos são sempre bloqueados.
+        </p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+          <div class="form-group" style="margin:0"><label>Início</label><input class="form-control" type="time" id="cfg-inicio" value="07:00"></div>
+          <div class="form-group" style="margin:0"><label>Fim</label><input class="form-control" type="time" id="cfg-fim" value="18:00"></div>
+        </div>
+        <button class="btn btn-primary" onclick="salvarHorario()">✓ Salvar horário</button>
+      </div>
+
+      <div class="card">
+        <div style="font-family:var(--font-head);font-size:16px;font-weight:800;margin-bottom:6px;">🔑 PINs dos mecânicos</div>
+        <p style="color:var(--text2);font-size:13px;margin-bottom:12px;">
+          Clique em ✏️ para definir ou alterar o PIN de cada mecânico.
+        </p>
+        ${pinRows||'<p style="color:var(--text2);">Nenhum mecânico cadastrado.</p>'}
+      </div>
+
+      <div class="card" style="border:1px solid rgba(249,115,22,0.3);">
+        <div style="font-family:var(--font-head);font-size:16px;font-weight:800;margin-bottom:8px;">📱 Link do app dos funcionários</div>
+        <p style="color:var(--text2);font-size:13px;margin-bottom:12px;">Envie este link para os mecânicos:</p>
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);
+          padding:12px 14px;font-size:13px;word-break:break-all;color:var(--accent);margin-bottom:10px;">
+          https://kauan0122.github.io/Oficina/funcionario.html
+        </div>
+        <button class="btn btn-ghost" onclick="navigator.clipboard.writeText('https://kauan0122.github.io/Oficina/funcionario.html').then(()=>toast('Link copiado! ✅'))">
+          📋 Copiar link
+        </button>
+      </div>
+    </div>
+  `;
+  // Carrega horário do Firebase
+  rtdb.ref('config/horario').once('value', snap=>{
+    const h = snap.val()||{inicio:'07:00',fim:'18:00'};
+    const i = document.getElementById('cfg-inicio');
+    const f = document.getElementById('cfg-fim');
+    if(i) i.value = h.inicio;
+    if(f) f.value = h.fim;
+  });
+}
+
+async function salvarHorario(){
+  const inicio = document.getElementById('cfg-inicio')?.value;
+  const fim    = document.getElementById('cfg-fim')?.value;
+  if(!inicio||!fim){ toast('Preencha os dois horários','error'); return; }
+  try {
+    await rtdb.ref('config/horario').set({inicio, fim});
+    toast('Horário salvo! ✅');
+  } catch(e){ toast('Erro ao salvar. Verifique a conexão.','error'); }
 }
 
 // Init
