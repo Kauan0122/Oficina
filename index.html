@@ -1722,18 +1722,15 @@ function regBuildRows(regs, mecanicos, servicos, veiculos){
         ${horaTag}
       </td>
       <td>
-        <div style="display:flex;align-items:center;gap:6px;">
-          <input type="number" min="0" step="0.01"
-            value="${r.value||0}"
-            onchange="editarValorInline(${r.id},this.value)"
-            style="width:90px;background:var(--surface2);border:1px solid var(--border);
-              border-radius:6px;padding:4px 8px;color:var(--green);font-weight:700;
-              font-size:13px;font-family:var(--font-head);outline:none;text-align:right;"
-            onfocus="this.style.borderColor='var(--accent)'"
-            onblur="this.style.borderColor='var(--border)'"
-            title="Clique para editar o valor">
-          <span style="font-size:11px;color:var(--text3)">R$</span>
-        </div>
+        <button onclick="abrirModalValor(${r.id})" style="
+          background:${r.value>0?'var(--green-dim)':'var(--surface2)'};
+          border:1px solid ${r.value>0?'rgba(34,197,94,0.3)':'var(--border)'};
+          border-radius:8px; padding:6px 12px; cursor:pointer;
+          font-family:var(--font-head); font-size:13px; font-weight:800;
+          color:${r.value>0?'var(--green)':'var(--text3)'};
+          white-space:nowrap; transition:all .15s;">
+          ${r.value>0?fmtMoney(r.value):'+ Definir valor'}
+        </button>
       </td>
       <td class="tbl-actions">
         <button class="btn btn-ghost btn-sm" onclick="regEditar(${r.id})" title="Editar">✏️</button>
@@ -1934,22 +1931,59 @@ async function salvarSenhasMecanicos(){
 }
 
 
-// ── EDIÇÃO RÁPIDA DE VALOR ──
-function editarValorInline(id, novoValor){
-  const value = parseFloat(novoValor)||0;
+// ── MODAL DE VALOR ──
+function abrirModalValor(id){
+  const registros = DB.get('registros')||[];
+  const mecanicos = DB.get('mecanicos')||[];
+  const servicos  = DB.get('servicos')||[];
+  const r = registros.find(x=>x.id===id);
+  if(!r) return;
+  const mec  = mecanicos.find(m=>m.id===r.mecanicoId);
+  const srv  = servicos.find(s=>s.id===r.servicoId);
+  const nome = r.nomeAvulso || srv?.name || '?';
+
+  openModal('💰 Definir Valor', `
+    <div style="text-align:center;margin-bottom:20px;">
+      <div style="font-size:13px;color:var(--text2);margin-bottom:4px;">${mec?.name||'?'} · ${fmtDate(r.date)}${r.hora?' · '+r.hora:''}</div>
+      <div style="font-family:var(--font-head);font-size:18px;font-weight:800;">${nome}</div>
+    </div>
+    <div style="position:relative;margin-bottom:20px;">
+      <span style="position:absolute;left:16px;top:50%;transform:translateY(-50%);
+        font-family:var(--font-head);font-size:20px;font-weight:800;color:var(--green);pointer-events:none;">R$</span>
+      <input type="number" id="modal-valor-input" min="0" step="0.01"
+        value="${r.value||''}" placeholder="0,00"
+        autofocus
+        style="width:100%;height:64px;padding:0 16px 0 52px;
+          background:var(--green-dim);border:2px solid rgba(34,197,94,0.4);
+          border-radius:var(--radius-sm);
+          color:var(--green);font-family:var(--font-head);
+          font-size:28px;font-weight:800;text-align:right;outline:none;">
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" style="flex:1;justify-content:center;" onclick="salvarModalValor(${id})">✓ Salvar</button>
+    </div>
+  `);
+  setTimeout(()=>{
+    const inp = document.getElementById('modal-valor-input');
+    if(inp){ inp.focus(); inp.select(); }
+  }, 150);
+}
+
+function salvarModalValor(id){
+  const value = parseFloat(document.getElementById('modal-valor-input')?.value)||0;
   const registros = DB.get('registros')||[];
   const i = registros.findIndex(r=>r.id===id);
-  if(i<0) return;
+  if(i<0){ closeModal(); return; }
   registros[i] = {...registros[i], value};
   DB.set('registros', registros);
   SYNC.pushRegistro(registros[i]);
-  // Atualiza total do dia sem re-renderizar tudo
-  const dateRegs = registros.filter(r=>r.date===regData);
-  const dayTotal = dateRegs.reduce((s,r)=>s+r.value,0);
-  const totalVal = document.getElementById('reg-total-val');
-  const totalBar = document.getElementById('reg-total-bar');
-  if(totalVal) totalVal.textContent = fmtMoney(dayTotal);
-  if(totalBar) totalBar.style.display = dayTotal>0?'flex':'none';
+  closeModal();
+  toast('Valor salvo! ✅');
+  // Atualiza a tela atual
+  const t = document.getElementById('topbar-title')?.textContent;
+  if(t==='Registrar Serviço') regAtualizarTabela();
+  else if(t==='⚡ Registro Rápido') renderRapido();
 }
 
 function regExcluir(id){
@@ -2074,18 +2108,15 @@ function renderRapido(){
         ${r.hora?`<span class="badge badge-blue" style="font-size:10px;">${r.hora}</span>`:''}
       </td>
       <td>
-        <div style="display:flex;align-items:center;gap:6px;">
-          <input type="number" min="0" step="0.01"
-            value="${r.value||0}"
-            onchange="editarValorInline(${r.id},this.value)"
-            style="width:90px;background:var(--surface2);border:1px solid var(--border);
-              border-radius:6px;padding:4px 8px;color:var(--green);font-weight:700;
-              font-size:13px;font-family:var(--font-head);outline:none;text-align:right;"
-            onfocus="this.style.borderColor='var(--accent)'"
-            onblur="this.style.borderColor='var(--border)'"
-            title="Clique para editar o valor">
-          <span style="font-size:11px;color:var(--text3)">R$</span>
-        </div>
+        <button onclick="abrirModalValor(${r.id})" style="
+          background:${r.value>0?'var(--green-dim)':'var(--surface2)'};
+          border:1px solid ${r.value>0?'rgba(34,197,94,0.3)':'var(--border)'};
+          border-radius:8px; padding:6px 12px; cursor:pointer;
+          font-family:var(--font-head); font-size:13px; font-weight:800;
+          color:${r.value>0?'var(--green)':'var(--text3)'};
+          white-space:nowrap; transition:all .15s;">
+          ${r.value>0?fmtMoney(r.value):'+ Definir valor'}
+        </button>
       </td>
       <td><button class="btn btn-danger btn-sm btn-icon" onclick="deleteRegistroRapido(${r.id})" title="Excluir">🗑</button></td>
     </tr>`;
