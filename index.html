@@ -1712,7 +1712,20 @@ function regBuildRows(regs, mecanicos, servicos, veiculos){
         ${nome}${r.nomeAvulso?' <span class="badge badge-orange" style="font-size:9px;">avulso</span>':''}
         ${horaTag}
       </td>
-      <td><strong style="color:var(--green)">${fmtMoney(r.value)}</strong></td>
+      <td>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <input type="number" min="0" step="0.01"
+            value="${r.value||0}"
+            onchange="editarValorInline(${r.id},this.value)"
+            style="width:90px;background:var(--surface2);border:1px solid var(--border);
+              border-radius:6px;padding:4px 8px;color:var(--green);font-weight:700;
+              font-size:13px;font-family:var(--font-head);outline:none;text-align:right;"
+            onfocus="this.style.borderColor='var(--accent)'"
+            onblur="this.style.borderColor='var(--border)'"
+            title="Clique para editar o valor">
+          <span style="font-size:11px;color:var(--text3)">R$</span>
+        </div>
+      </td>
       <td class="tbl-actions">
         <button class="btn btn-ghost btn-sm" onclick="regEditar(${r.id})" title="Editar">✏️</button>
         <button class="btn btn-danger btn-sm" onclick="regExcluir(${r.id})" title="Excluir">🗑</button>
@@ -1911,6 +1924,25 @@ async function salvarSenhasMecanicos(){
   toast(salvos>0?`${salvos} senha(s) salva(s)! ✅`:'Nenhuma senha alterada','info');
 }
 
+
+// ── EDIÇÃO RÁPIDA DE VALOR ──
+function editarValorInline(id, novoValor){
+  const value = parseFloat(novoValor)||0;
+  const registros = DB.get('registros')||[];
+  const i = registros.findIndex(r=>r.id===id);
+  if(i<0) return;
+  registros[i] = {...registros[i], value};
+  DB.set('registros', registros);
+  SYNC.pushRegistro(registros[i]);
+  // Atualiza total do dia sem re-renderizar tudo
+  const dateRegs = registros.filter(r=>r.date===regData);
+  const dayTotal = dateRegs.reduce((s,r)=>s+r.value,0);
+  const totalVal = document.getElementById('reg-total-val');
+  const totalBar = document.getElementById('reg-total-bar');
+  if(totalVal) totalVal.textContent = fmtMoney(dayTotal);
+  if(totalBar) totalBar.style.display = dayTotal>0?'flex':'none';
+}
+
 function regExcluir(id){
   if(!confirm('Excluir este registro?')) return;
   if(regEditing===id){ regEditing=null; }
@@ -2033,7 +2065,20 @@ function renderRapido(){
         ${nome}${r.nomeAvulso?' <span class="badge badge-orange" style="font-size:9px;">avulso</span>':''}
         ${r.hora?`<span class="badge badge-blue" style="font-size:10px;">${r.hora}</span>`:''}
       </td>
-      <td><strong style="color:var(--green)">${fmtMoney(r.value)}</strong></td>
+      <td>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <input type="number" min="0" step="0.01"
+            value="${r.value||0}"
+            onchange="editarValorInline(${r.id},this.value)"
+            style="width:90px;background:var(--surface2);border:1px solid var(--border);
+              border-radius:6px;padding:4px 8px;color:var(--green);font-weight:700;
+              font-size:13px;font-family:var(--font-head);outline:none;text-align:right;"
+            onfocus="this.style.borderColor='var(--accent)'"
+            onblur="this.style.borderColor='var(--border)'"
+            title="Clique para editar o valor">
+          <span style="font-size:11px;color:var(--text3)">R$</span>
+        </div>
+      </td>
       <td><button class="btn btn-danger btn-sm btn-icon" onclick="deleteRegistroRapido(${r.id})" title="Excluir">🗑</button></td>
     </tr>`;
   }).join('');
