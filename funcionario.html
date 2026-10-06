@@ -594,7 +594,11 @@ function dentroDoHorario(){
   if(now.getDay()===0) return false; // domingo bloqueado
   const toMin = s => { const [h,m]=(s||'00:00').split(':'); return +h*60+ +m; };
   const atual = now.getHours()*60+now.getMinutes();
-  return atual >= toMin(cfgHorario.inicio) && atual < toMin(cfgHorario.fim);
+  const inicio = toMin(cfgHorario.inicio);
+  const fim    = toMin(cfgHorario.fim);
+  // Se fim <= inicio (ex: 00:00), considera dia todo liberado
+  if(fim <= inicio) return true;
+  return atual >= inicio && atual < fim;
 }
 
 function verificarHorario(){
@@ -607,7 +611,9 @@ function verificarHorario(){
 
 function mostrarBloqueado(){
   mostrar('tela-bloqueado');
-  const msg = `Registros permitidos apenas das ${cfgHorario.inicio} às ${cfgHorario.fim}. ${new Date().getDay()===0?'Domingos sempre bloqueados.':''}`;
+  const now = new Date();
+  const horaAtual = now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  const msg = `Horário atual: ${horaAtual} · Permitido das ${cfgHorario.inicio} às ${cfgHorario.fim}.${now.getDay()===0?' Domingos sempre bloqueados.':''}`;
   document.getElementById('bloq-msg').textContent = msg;
 
   clearInterval(_bloqTimer);
