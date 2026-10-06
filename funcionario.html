@@ -497,15 +497,16 @@ body {
     <!-- REGISTRAR SERVIÇO -->
     <div class="card">
       <div class="card-label">🔧 Registrar Serviço</div>
-      <input class="input" id="srv-nome" type="text" placeholder="Ex: Troca de óleo, Freios..." autocomplete="off">
+      <input class="input" id="srv-nome" type="text" placeholder="Serviço realizado... *" autocomplete="off">
       <select class="input" id="srv-vei" style="cursor:pointer;">
-        <option value="">🚗 Veículo (opcional)</option>
+        <option value="">🚗 Selecione o veículo *</option>
       </select>
-      <!-- COR -->
-      <div id="cor-wrap" style="display:none;margin-bottom:10px;">
-        <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.7px;margin-bottom:8px;">Cor do veículo</div>
-        <div id="cor-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;"></div>
+      <!-- COR — sempre visível -->
+      <div style="margin-bottom:10px;">
+        <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.7px;margin-bottom:8px;">🎨 Cor do veículo *</div>
+        <div id="cor-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;"></div>
         <input type="hidden" id="srv-cor" value="">
+        <div id="cor-aviso" style="font-size:12px;color:var(--text3);margin-top:6px;">Nenhuma cor selecionada</div>
       </div>
       <button class="btn-registrar" onclick="registrarServico()">+ Registrar</button>
     </div>
@@ -633,6 +634,15 @@ async function carregarConfig(){
     if(h && h.inicio && h.fim) cfgHorario = h;
   } catch(e){ /* usa default */ }
 }
+
+// Atualiza horário do Firebase a cada 30s — garante que mudanças do admin refletem
+setInterval(async()=>{
+  try {
+    const snap = await db.ref('config/horario').once('value');
+    const h = snap.val();
+    if(h && h.inicio && h.fim) cfgHorario = h;
+  } catch(e){}
+}, 30000);
 
 function dentroDoHorario(){
   const now = new Date();
@@ -811,20 +821,23 @@ function carregarVeiculos(){
 function preencherSelectVei(){
   const sel = document.getElementById('srv-vei');
   if(!sel) return;
-  sel.innerHTML = '<option value="">🚗 Veículo (opcional)</option>'
+  sel.innerHTML = '<option value="">🚗 Selecione o veículo *</option>'
     + veiculos.map(v=>`<option value="${v.id}">${v.marca} ${v.modelo}${v.cor?' — '+v.cor:''}</option>`).join('');
   sel.onchange = () => {
     const veiId = parseInt(sel.value)||null;
     const vei   = veiculos.find(v=>v.id===veiId);
-    const wrap  = document.getElementById('cor-wrap');
-    if(vei){
-      wrap.style.display = 'block';
-      renderCorGrid(vei.cor||'');
+    // Pré-seleciona a cor do veículo se tiver
+    if(vei && vei.cor){
+      renderCorGrid(vei.cor);
     } else {
-      wrap.style.display = 'none';
+      // Limpa seleção de cor
+      document.querySelectorAll('.cor-btn').forEach(b=>b.classList.remove('sel'));
       document.getElementById('srv-cor').value = '';
+      document.getElementById('cor-aviso').textContent = 'Nenhuma cor selecionada';
     }
   };
+  // Renderiza grid de cores imediatamente
+  renderCorGrid('');
 }
 
 function renderCorGrid(corPreSel){
@@ -832,16 +845,22 @@ function renderCorGrid(corPreSel){
   if(!grid) return;
   const cores = Object.keys(COR_HEX);
   grid.innerHTML = cores.map(nome=>{
-    const hex    = COR_HEX[nome];
-    const borda  = nome==='Branco'?'border:1.5px solid #555;':'';
-    const sel    = nome===corPreSel;
+    const hex   = COR_HEX[nome];
+    const borda = nome==='Branco'?'border:1.5px solid #555;':'';
+    const sel   = nome===corPreSel;
     return `<button class="cor-btn${sel?' sel':''}" onclick="escolherCor('${nome}',this)" type="button">
       <span class="cor-circulo" style="background:${hex};${borda}"></span>
       <span class="cor-nome">${nome}</span>
     </button>`;
   }).join('');
+  const corEl = document.getElementById('srv-cor');
+  const aviso = document.getElementById('cor-aviso');
   if(corPreSel){
-    document.getElementById('srv-cor').value = corPreSel;
+    corEl.value = corPreSel;
+    if(aviso) aviso.textContent = `✅ ${corPreSel} selecionada`;
+  } else {
+    corEl.value = '';
+    if(aviso) aviso.textContent = 'Nenhuma cor selecionada';
   }
 }
 
@@ -849,6 +868,8 @@ function escolherCor(nome, el){
   document.querySelectorAll('.cor-btn').forEach(b=>b.classList.remove('sel'));
   el.classList.add('sel');
   document.getElementById('srv-cor').value = nome;
+  const aviso = document.getElementById('cor-aviso');
+  if(aviso) aviso.textContent = `✅ ${nome} selecionada`;
 }
 
 // ── SERVIÇOS ──
@@ -896,7 +917,9 @@ async function registrarServico(){
   const nome  = document.getElementById('srv-nome').value.trim();
   const veiId = parseInt(document.getElementById('srv-vei').value)||null;
   const cor   = document.getElementById('srv-cor').value||'';
-  if(!nome){ toast('Digite o nome do serviço','err'); return; }
+  if(!nome)  { toast('Digite o nome do serviço','err'); return; }
+  if(!veiId) { toast('Selecione o veículo','err'); return; }
+  if(!cor)   { toast('Selecione a cor do veículo','err'); return; }
 
   const vei  = veiculos.find(v=>v.id===veiId)||null;
   const hora = horaMin();
@@ -927,8 +950,10 @@ async function registrarServico(){
 
   document.getElementById('srv-nome').value = '';
   document.getElementById('srv-vei').value  = '';
+  document.querySelectorAll('.cor-btn').forEach(b=>b.classList.remove('sel'));
   document.getElementById('srv-cor').value  = '';
-  document.getElementById('cor-wrap').style.display = 'none';
+  const aviso = document.getElementById('cor-aviso');
+  if(aviso) aviso.textContent = 'Nenhuma cor selecionada';
   carregarServicos();
 }
 
