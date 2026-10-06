@@ -357,6 +357,35 @@ body {
   font-size: 13px;
 }
 
+/* Cor */
+.cor-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  padding: 6px 4px;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  transition: all 0.15s;
+  background: none;
+}
+.cor-btn.sel { border-color: var(--accent); background: var(--accent-dim,rgba(249,115,22,0.12)); }
+.cor-circulo {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  display: block;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+.cor-nome {
+  font-size: 9px;
+  color: var(--text2);
+  text-align: center;
+  line-height: 1.1;
+  max-width: 38px;
+  word-break: break-word;
+}
+
 /* Toast */
 .toast-wrap {
   position: fixed;
@@ -469,7 +498,15 @@ body {
     <div class="card">
       <div class="card-label">🔧 Registrar Serviço</div>
       <input class="input" id="srv-nome" type="text" placeholder="Ex: Troca de óleo, Freios..." autocomplete="off">
-      <input class="input" id="srv-vei"  type="text" placeholder="Veículo (opcional) — Ex: Fiat Uno Branco" autocomplete="off">
+      <select class="input" id="srv-vei" style="cursor:pointer;">
+        <option value="">🚗 Veículo (opcional)</option>
+      </select>
+      <!-- COR -->
+      <div id="cor-wrap" style="display:none;margin-bottom:10px;">
+        <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.7px;margin-bottom:8px;">Cor do veículo</div>
+        <div id="cor-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;"></div>
+        <input type="hidden" id="srv-cor" value="">
+      </div>
       <button class="btn-registrar" onclick="registrarServico()">+ Registrar</button>
     </div>
 
@@ -504,12 +541,20 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
 // ── STATE ──
-let pin       = '';
-let mecAtual  = null; // { id, name, pin }
+let pin        = '';
+let mecAtual   = null;
+let veiculos   = [];
 let cfgHorario = { inicio: '07:00', fim: '18:00' };
-let _clockTimer  = null;
-let _pontoTimer  = null;
-let _bloqTimer   = null;
+let _clockTimer = null;
+let _pontoTimer = null;
+let _bloqTimer  = null;
+
+const COR_HEX = {
+  'Branco':'#FFFFFF','Prata':'#C0C0C0','Cinza':'#808080','Preto':'#1a1a1a',
+  'Vermelho':'#DC2626','Azul':'#2563EB','Azul Marinho':'#1E3A8A','Verde':'#16A34A',
+  'Amarelo':'#EAB308','Laranja':'#F97316','Roxo':'#7C3AED','Rosa':'#EC4899',
+  'Marrom':'#92400E','Bege':'#D4B896','Dourado':'#B45309','Outra':'#6B7280'
+};
 
 // ── UTILS ──
 function todayStr(){ return new Date().toISOString().split('T')[0]; }
@@ -653,6 +698,7 @@ function abrirApp(){
 
   carregarPonto();
   carregarServicos();
+  carregarVeiculos();
 
   // Listener em tempo real para serviços
   db.ref('registros').orderByChild('mecanicoId').equalTo(mecAtual.id)
@@ -753,6 +799,58 @@ async function baterPonto(){
   atualizarPontoUI(novaEnt, novaSai);
 }
 
+// ── VEÍCULOS ──
+function carregarVeiculos(){
+  db.ref('veiculos').once('value', snap=>{
+    const val = snap.val();
+    veiculos = val ? (Array.isArray(val) ? val : Object.values(val)).filter(Boolean) : [];
+    preencherSelectVei();
+  });
+}
+
+function preencherSelectVei(){
+  const sel = document.getElementById('srv-vei');
+  if(!sel) return;
+  sel.innerHTML = '<option value="">🚗 Veículo (opcional)</option>'
+    + veiculos.map(v=>`<option value="${v.id}">${v.marca} ${v.modelo}${v.cor?' — '+v.cor:''}</option>`).join('');
+  sel.onchange = () => {
+    const veiId = parseInt(sel.value)||null;
+    const vei   = veiculos.find(v=>v.id===veiId);
+    const wrap  = document.getElementById('cor-wrap');
+    if(vei){
+      wrap.style.display = 'block';
+      renderCorGrid(vei.cor||'');
+    } else {
+      wrap.style.display = 'none';
+      document.getElementById('srv-cor').value = '';
+    }
+  };
+}
+
+function renderCorGrid(corPreSel){
+  const grid = document.getElementById('cor-grid');
+  if(!grid) return;
+  const cores = Object.keys(COR_HEX);
+  grid.innerHTML = cores.map(nome=>{
+    const hex    = COR_HEX[nome];
+    const borda  = nome==='Branco'?'border:1.5px solid #555;':'';
+    const sel    = nome===corPreSel;
+    return `<button class="cor-btn${sel?' sel':''}" onclick="escolherCor('${nome}',this)" type="button">
+      <span class="cor-circulo" style="background:${hex};${borda}"></span>
+      <span class="cor-nome">${nome}</span>
+    </button>`;
+  }).join('');
+  if(corPreSel){
+    document.getElementById('srv-cor').value = corPreSel;
+  }
+}
+
+function escolherCor(nome, el){
+  document.querySelectorAll('.cor-btn').forEach(b=>b.classList.remove('sel'));
+  el.classList.add('sel');
+  document.getElementById('srv-cor').value = nome;
+}
+
 // ── SERVIÇOS ──
 function carregarServicos(){
   const today = todayStr();
@@ -774,23 +872,33 @@ function renderServicos(lista){
     return;
   }
 
-  list.innerHTML = lista.map(r=>`
+  list.innerHTML = lista.map(r=>{
+    const vei = veiculos.find(v=>v.id===r.veiculoId);
+    const veiLabel = vei ? `${vei.marca} ${vei.modelo}` : (r.veiculoDesc||'');
+    const corHex   = r.cor ? COR_HEX[r.cor]||'#6B7280' : null;
+    const corBorda = r.cor==='Branco' ? 'border:1px solid #555;' : '';
+    return `
     <div class="srv-item">
       <div class="srv-item-dot"></div>
       <div class="srv-item-info">
         <div class="srv-item-nome">${r.nomeAvulso||'Serviço'}</div>
-        ${r.veiculoDesc?`<div class="srv-item-vei">🚗 ${r.veiculoDesc}</div>`:''}
+        ${veiLabel||corHex ? `<div class="srv-item-vei" style="display:flex;align-items:center;gap:5px;">
+          ${corHex?`<span style="width:9px;height:9px;border-radius:50%;flex-shrink:0;background:${corHex};${corBorda}"></span>`:''}
+          ${veiLabel||''}
+        </div>` : ''}
       </div>
       <div class="srv-item-hora">${r.hora||''}</div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
 
 async function registrarServico(){
-  const nome = document.getElementById('srv-nome').value.trim();
-  const vei  = document.getElementById('srv-vei').value.trim();
+  const nome  = document.getElementById('srv-nome').value.trim();
+  const veiId = parseInt(document.getElementById('srv-vei').value)||null;
+  const cor   = document.getElementById('srv-cor').value||'';
   if(!nome){ toast('Digite o nome do serviço','err'); return; }
 
+  const vei  = veiculos.find(v=>v.id===veiId)||null;
   const hora = horaMin();
   const id   = Date.now();
 
@@ -802,14 +910,12 @@ async function registrarServico(){
     mecNome:    mecAtual.name,
     servicoId:  null,
     nomeAvulso: nome,
-    veiculoId:  null,
-    veiculoDesc:vei||null,
-    cor:        '',
-    value:      0   // valor a ser preenchido pelo admin depois
+    veiculoId:  veiId,
+    cor,
+    value:      0
   };
 
-  // Remove chaves null para o Firebase
-  const clean = Object.fromEntries(Object.entries(reg).filter(([,v])=>v!==null&&v!==undefined));
+  const clean = Object.fromEntries(Object.entries(reg).filter(([,v])=>v!==null&&v!==undefined&&v!==''));
 
   try {
     await db.ref('registros/'+id).set(clean);
@@ -819,8 +925,10 @@ async function registrarServico(){
     return;
   }
 
-  document.getElementById('srv-nome').value='';
-  document.getElementById('srv-vei').value='';
+  document.getElementById('srv-nome').value = '';
+  document.getElementById('srv-vei').value  = '';
+  document.getElementById('srv-cor').value  = '';
+  document.getElementById('cor-wrap').style.display = 'none';
   carregarServicos();
 }
 
