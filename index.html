@@ -969,6 +969,20 @@ const SYNC = {
     } catch(e){ setSyncStatus('error'); }
   },
 
+  async pushParcela(p){
+    try {
+      setSyncStatus('syncing');
+      await rtdb.ref('parcelas/' + p.id).set(p);
+      setSyncStatus('ok');
+    } catch(e){ setSyncStatus('error'); }
+  },
+
+  async deleteParcela(id){
+    try {
+      await rtdb.ref('parcelas/' + id).remove();
+    } catch(e){}
+  },
+
   async pushVale(v){
     try {
       setSyncStatus('syncing');
@@ -1048,6 +1062,12 @@ const SYNC = {
       onOk(); rerender();
     }, onErr);
 
+    rtdb.ref('parcelas').on('value', s => {
+      const v = s.val();
+      DB.set('parcelas', v ? Object.values(v) : []);
+      onOk(); rerender();
+    }, onErr);
+
     return true;
   },
 
@@ -1112,7 +1132,8 @@ const DB = {
     ]);
     if(!this.get('registros')) this.set('registros', generateSampleData());
     if(!this.get('vales')) this.set('vales', []);
-    if(!this.get('nextId')) this.set('nextId',{mec:4,srv:9,reg:1000,vei:3,val:1});
+    if(!this.get('nextId')) this.set('nextId',{mec:4,srv:9,reg:1000,vei:3,val:1,par:1});
+    if(!this.get('parcelas')) this.set('parcelas',[]);
   }
 };
 
@@ -2615,21 +2636,97 @@ function deleteVeiculo(id){
 }
 
 // ══════════════════════════════════
-//  VALES (Adiantamentos)
+//  VALES & PARCELAMENTOS
 // ══════════════════════════════════
 function renderVales(){
-  const vales = DB.get('vales')||[];
-  const mecanicos = DB.get('mecanicos')||[];
+  const vales    = DB.get('vales')||[];
+  const parcelas = DB.get('parcelas')||[];
+  const mecanicos= DB.get('mecanicos')||[];
   const mecOptions = mecanicos.map(m=>`<option value="${m.id}">${m.name}</option>`).join('');
+  const wb = currentWeekBounds();
+
+  // Parcelas da semana atual
+  const parcelasSemana = parcelas.filter(p=>p.weekStart===wb.start);
 
   document.getElementById('page-content').innerHTML = `
-    <div class="quick-form">
-      <div class="page-header-title" style="margin-bottom:16px;">💸 Lançar Vale (Adiantamento)</div>
-      <div class="quick-form-grid qfg-vales">
-        <div class="form-group" style="margin:0"><label>Mecânico</label><select class="form-control" id="vale-mec"><option value="">Selecione...</option>${mecOptions}</select></div>
-        <div class="form-group" style="margin:0"><label>Motivo/Descrição</label><input type="text" class="form-control" id="vale-desc" placeholder="Ex: Adiantamento semana"></div>
-        <div class="form-group" style="margin:0"><label>Valor</label><input type="number" class="form-control" id="vale-val" min="0" step="0.01" style="color:var(--red);font-weight:700;"></div>
-        <div class="form-group" style="margin:0"><label>Ação</label><button class="btn btn-primary" style="width:100%;height:44px;justify-content:center;" onclick="salvarVale()">✓ Lançar</button></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;" class="backup-grid">
+
+      <!-- VALE -->
+      <div class="quick-form" style="margin-bottom:0;">
+        <div class="page-header-title" style="margin-bottom:16px;font-size:18px;">💸 Lançar Vale</div>
+        <div class="form-group"><label>Mecânico</label>
+          <select class="form-control" id="vale-mec"><option value="">Selecione...</option>${mecOptions}</select></div>
+        <div class="form-group"><label>Descrição</label>
+          <input type="text" class="form-control" id="vale-desc" placeholder="Ex: Adiantamento"></div>
+        <div class="form-group"><label>Valor (R$)</label>
+          <input type="number" class="form-control" id="vale-val" min="0" step="0.01"
+            style="color:var(--red);font-weight:700;"></div>
+        <button class="btn btn-primary" style="width:100%;justify-content:center;height:44px;" onclick="salvarVale()">
+          ✓ Lançar Vale
+        </button>
+      </div>
+
+      <!-- PARCELAMENTO -->
+      <div class="quick-form" style="margin-bottom:0;border:1px solid rgba(59,130,246,0.3);">
+        <div class="page-header-title" style="margin-bottom:4px;font-size:18px;">📅 Parcelar Valor</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:14px;">Divide um valor em parcelas semanais automáticas</div>
+        <div class="form-group"><label>Mecânico</label>
+          <select class="form-control" id="par-mec"><option value="">Selecione...</option>${mecOptions}</select></div>
+        <div class="form-group"><label>Descrição</label>
+          <input type="text" class="form-control" id="par-desc" placeholder="Ex: Avanço de peça, Ferramentas..."></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div class="form-group"><label>Valor Total (R$)</label>
+            <input type="number" class="form-control" id="par-valor" min="0" step="0.01"
+              style="color:var(--blue);font-weight:700;"
+              oninput="atualizarPreviewParcela()"></div>
+          <div class="form-group"><label>Nº de Semanas</label>
+            <select class="form-control" id="par-semanas" onchange="atualizarPreviewParcela()">
+              <option value="2">2 semanas</option>
+              <option value="3">3 semanas</option>
+              <option value="4">4 semanas</option>
+              <option value="5">5 semanas</option>
+              <option value="6">6 semanas</option>
+            </select>
+          </div>
+        </div>
+        <div id="par-preview" style="background:var(--blue-dim);border:1px solid rgba(59,130,246,0.2);
+          border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:14px;font-size:13px;color:var(--text2);display:none;">
+        </div>
+        <button class="btn btn-primary" style="width:100%;justify-content:center;height:44px;background:var(--blue);" onclick="salvarParcelamento()">
+          ✓ Criar Parcelamento
+        </button>
+      </div>
+    </div>
+
+    <!-- PARCELAS DA SEMANA -->
+    ${parcelasSemana.length>0?`
+    <div class="card" style="margin-bottom:16px;border:1px solid rgba(59,130,246,0.3);">
+      <div style="font-family:var(--font-head);font-size:15px;font-weight:800;margin-bottom:12px;color:var(--blue);">
+        📅 Parcelas desta semana (${fmtDate(wb.start)} → ${fmtDate(wb.end)})
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Mecânico</th><th>Descrição</th><th>Parcela</th><th>Valor</th><th></th></tr></thead>
+          <tbody>
+            ${parcelasSemana.map(p=>{
+              const mec = mecanicos.find(m=>m.id===p.mecanicoId);
+              return `<tr>
+                <td><strong>${mec?.name||'?'}</strong></td>
+                <td>${p.desc}</td>
+                <td><span class="badge badge-blue">${p.parcela}/${p.total}</span></td>
+                <td style="color:var(--red);font-weight:700;">- ${fmtMoney(p.value)}</td>
+                <td><button class="btn btn-danger btn-sm" onclick="deleteParcela(${p.id})">🗑</button></td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`:''}
+
+    <!-- TODOS OS VALES -->
+    <div class="page-header">
+      <div class="page-header-left">
+        <div class="page-header-title">Histórico de Vales</div>
       </div>
     </div>
     <div class="card">
@@ -2637,7 +2734,7 @@ function renderVales(){
         <table id="vale-table">
           <thead><tr><th>Data</th><th>Mecânico</th><th>Descrição</th><th>Valor</th><th></th></tr></thead>
           <tbody>
-            ${vales.length===0?`<tr><td colspan="5"><div class="empty-state">Nenhum vale</div></td></tr>`:
+            ${vales.length===0?`<tr><td colspan="5"><div class="empty-state">Nenhum vale lançado</div></td></tr>`:
               vales.slice().reverse().map(v=>{
                 const mec = mecanicos.find(m=>m.id===v.mecanicoId);
                 return `<tr>
@@ -2652,20 +2749,77 @@ function renderVales(){
           </tbody>
         </table>
       </div>
+    </div>
+  `;
+}
+
+function atualizarPreviewParcela(){
+  const total  = parseFloat(document.getElementById('par-valor')?.value)||0;
+  const semanas= parseInt(document.getElementById('par-semanas')?.value)||2;
+  const preview= document.getElementById('par-preview');
+  if(!preview) return;
+  if(!total){ preview.style.display='none'; return; }
+  const parcela = total/semanas;
+  const wb = currentWeekBounds();
+  let linhas = '';
+  for(let i=0;i<semanas;i++){
+    const d = new Date(wb.start+'T12:00:00');
+    d.setDate(d.getDate() + i*7);
+    const wb2 = getWeekBounds(d.toISOString().split('T')[0]);
+    linhas += `<div style="display:flex;justify-content:space-between;padding:3px 0;">
+      <span>Parcela ${i+1}/${semanas} — sem. ${fmtDate(wb2.start)}</span>
+      <strong style="color:var(--blue);">- ${fmtMoney(parcela)}</strong>
     </div>`;
+  }
+  preview.style.display='block';
+  preview.innerHTML = linhas;
 }
 
 function salvarVale(){
   const mecId = parseInt(document.getElementById('vale-mec').value);
-  const desc = document.getElementById('vale-desc').value.trim();
-  const val = parseFloat(document.getElementById('vale-val').value)||0;
-  if(!mecId||!desc||!val){ toast('Preencha os campos','error'); return; }
+  const desc  = document.getElementById('vale-desc').value.trim();
+  const val   = parseFloat(document.getElementById('vale-val').value)||0;
+  if(!mecId||!desc||!val){ toast('Preencha todos os campos','error'); return; }
   const v = {id:nextId('val'), date:todayStr(), mecanicoId:mecId, desc, value:val};
   const vales = DB.get('vales')||[];
   vales.push(v);
   DB.set('vales', vales);
   SYNC.pushVale(v);
-  toast('Vale lançado!');
+  toast('Vale lançado! ✅');
+  renderVales();
+}
+
+function salvarParcelamento(){
+  const mecId  = parseInt(document.getElementById('par-mec').value);
+  const desc   = document.getElementById('par-desc').value.trim();
+  const total  = parseFloat(document.getElementById('par-valor').value)||0;
+  const semanas= parseInt(document.getElementById('par-semanas').value)||2;
+  if(!mecId||!desc||!total){ toast('Preencha todos os campos','error'); return; }
+
+  const valorParcela = parseFloat((total/semanas).toFixed(2));
+  const wb = currentWeekBounds();
+  const parcelas = DB.get('parcelas')||[];
+
+  for(let i=0;i<semanas;i++){
+    const d = new Date(wb.start+'T12:00:00');
+    d.setDate(d.getDate() + i*7);
+    const wb2 = getWeekBounds(d.toISOString().split('T')[0]);
+    const p = {
+      id: nextId('par'),
+      date: todayStr(),
+      weekStart: wb2.start,
+      weekEnd:   wb2.end,
+      mecanicoId: mecId,
+      desc: desc,
+      parcela: i+1,
+      total: semanas,
+      value: valorParcela
+    };
+    parcelas.push(p);
+    SYNC.pushParcela(p);
+  }
+  DB.set('parcelas', parcelas);
+  toast(`Parcelamento criado! ${semanas}x ${fmtMoney(valorParcela)} ✅`);
   renderVales();
 }
 
@@ -2674,6 +2828,14 @@ function deleteVale(id){
   const vales = (DB.get('vales')||[]).filter(v=>v.id!==id);
   DB.set('vales', vales);
   SYNC.deleteVale(id);
+  renderVales();
+}
+
+function deleteParcela(id){
+  if(!confirm('Excluir esta parcela?')) return;
+  const parcelas = (DB.get('parcelas')||[]).filter(p=>p.id!==id);
+  DB.set('parcelas', parcelas);
+  SYNC.deleteParcela(id);
   renderVales();
 }
 
@@ -2691,15 +2853,18 @@ function renderFechamentoFor(start, end){
   const vales = DB.get('vales')||[];
   
   const regs = registros.filter(r=>r.date>=start && r.date<=end);
-  const vls = vales.filter(v=>v.date>=start && v.date<=end);
-  const totalGeralRegs = regs.reduce((s,r)=>s+r.value,0);
-  const totalGeralVales = vls.reduce((s,v)=>s+v.value,0);
+  const vls      = vales.filter(v=>v.date>=start && v.date<=end);
+  const parcelas = DB.get('parcelas')||[];
+  const parsSem  = parcelas.filter(p=>p.weekStart>=start && p.weekStart<=end);
+  const totalGeralRegs  = regs.reduce((s,r)=>s+r.value,0);
+  const totalGeralVales = vls.reduce((s,v)=>s+v.value,0) + parsSem.reduce((s,p)=>s+p.value,0);
 
   const mecStats = mecanicos.map(m=>{
     const rs = regs.filter(r=>r.mecanicoId===m.id);
-    const vs = vls.filter(v=>v.mecanicoId===m.id);
+    const vs   = vls.filter(v=>v.mecanicoId===m.id);
+    const ps   = parsSem.filter(p=>p.mecanicoId===m.id);
     const prod = rs.reduce((s,r)=>s+r.value,0);
-    const vale = vs.reduce((s,v)=>s+v.value,0);
+    const vale = vs.reduce((s,v)=>s+v.value,0) + ps.reduce((s,p)=>s+p.value,0);
     return {...m, count:rs.length, prod, vale, total: prod - vale};
   }).sort((a,b)=>b.total-a.total);
 
@@ -2742,6 +2907,27 @@ function renderFechamentoFor(start, end){
         </table>
       </div>
     </div>
+
+    ${parsSem.length>0?`
+    <div class="page-header" style="margin-top:4px;">
+      <div class="page-header-title" style="font-size:18px;">📅 Parcelas descontadas esta semana</div>
+    </div>
+    <div class="card" style="margin-bottom:16px;">
+      <div class="table-wrap"><table>
+        <thead><tr><th>Mecânico</th><th>Descrição</th><th>Parcela</th><th>Valor Descontado</th></tr></thead>
+        <tbody>
+          ${parsSem.map(p=>{
+            const mec2 = mecanicos.find(m=>m.id===p.mecanicoId);
+            return `<tr>
+              <td><strong>${mec2?.name||'?'}</strong></td>
+              <td>${p.desc}</td>
+              <td><span class="badge badge-blue">${p.parcela}/${p.total}</span></td>
+              <td style="color:var(--red);font-weight:600;">- ${fmtMoney(p.value)}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table></div>
+    </div>`:''}
   `;
 }
 
