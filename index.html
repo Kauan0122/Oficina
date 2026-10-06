@@ -1704,10 +1704,14 @@ function regBuildRows(regs, mecanicos, servicos, veiculos){
            ${vei.marca} ${vei.modelo}
          </span>`
       : `<span class="badge badge-orange">N/A</span>`;
+    const horaTag = r.hora ? `<span class="badge badge-blue" style="font-size:10px;">${r.hora}</span>` : '';
     return `<tr style="${regEditing===r.id?'background:var(--accent-dim);outline:1.5px solid var(--accent);':''}">
       <td><strong>${mec?.name||'?'}</strong></td>
       <td>${veiCell}</td>
-      <td>${nome}${r.nomeAvulso?' <span class="badge badge-orange" style="font-size:9px;">avulso</span>':''}</td>
+      <td>
+        ${nome}${r.nomeAvulso?' <span class="badge badge-orange" style="font-size:9px;">avulso</span>':''}
+        ${horaTag}
+      </td>
       <td><strong style="color:var(--green)">${fmtMoney(r.value)}</strong></td>
       <td class="tbl-actions">
         <button class="btn btn-ghost btn-sm" onclick="regEditar(${r.id})" title="Editar">✏️</button>
@@ -2023,7 +2027,10 @@ function renderRapido(){
           <span style="width:9px;height:9px;border-radius:50%;background:${COR_HEX[r.cor]||'#6B7280'};${r.cor==='Branco'?'border:1px solid #555':''}"></span>
           ${r.cor}</span>`:'—'}
       </td>
-      <td>${nome}${r.nomeAvulso?' <span class="badge badge-orange" style="font-size:9px;">avulso</span>':''}</td>
+      <td>
+        ${nome}${r.nomeAvulso?' <span class="badge badge-orange" style="font-size:9px;">avulso</span>':''}
+        ${r.hora?`<span class="badge badge-blue" style="font-size:10px;">${r.hora}</span>`:''}
+      </td>
       <td><strong style="color:var(--green)">${fmtMoney(r.value)}</strong></td>
       <td><button class="btn btn-danger btn-sm btn-icon" onclick="deleteRegistroRapido(${r.id})" title="Excluir">🗑</button></td>
     </tr>`;
